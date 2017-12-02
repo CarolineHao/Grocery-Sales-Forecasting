@@ -1,0 +1,107 @@
+---
+title: "ets"
+author: "Shiqi Duan"
+date: "2017/12/1"
+output: html_document
+---
+
+```{r}
+#packages
+library(data.table)
+library(lubridate)
+library(date)
+library(reshape2)
+library(forecast)
+library(doMC)
+library(foreach)
+library(dplyr)
+```
+
+
+```{r, echo=FALSE}
+setwd("/Users/duanshiqi/Documents/GitHub/fall2017-project5-group1/")
+train <- fread("./output/combined_train.csv")
+
+train_sub <- train%>%filter(date < "2016-04-16")
+train_sub <- train_sub[, c('date','store_item_nbr', 'unit_sales')]
+train_valid <- train%>%filter(date > "2016-04-15")
+
+train_sub_wide <- dcast(train_sub, store_item_nbr ~ date, mean, value.var = "unit_sales", fill = 0)
+train_ts <- ts(train_sub_wide, frequency = 7) 
+
+fcst_intv = length(unique(train_valid$date))  # number of days of forecast in the validation set
+fcst_matrix <- matrix(NA,nrow=nrow(train_ts),ncol=fcst_intv)
+
+# forecast the sales in validation set
+registerDoMC(detectCores()-1)
+fcst_matrix <- foreach(i=1:nrow(train_ts),.combine=rbind, .packages=c("forecast")) %dopar% { 
+  fcst_matrix <- forecast(ets(train_ts[i,], lambda = 0.5),h=fcst_intv)$mean
+}
+colnames(fcst_matrix) <- as.character(seq(from = as.Date("2016-04-16"), 
+                                          to = as.Date("2016-08-15"), 
+                                          by = 'day'))
+fcst_df <- as.data.frame(cbind(train_sub_wide[, 1], fcst_matrix)) 
+colnames(fcst_df)[1] <- "store_item_nbr"
+
+fcst_df_long <- melt(fcst_df, id = 'store_item_nbr', 
+                              variable.name = "fcst_date", 
+                              value.name = 'unit_sales')
+fcst_df_long$store_item_nbr <- as.character(fcst_df_long$store_item_nbr)
+fcst_df_long$fcst_date <- as.Date(parse_date_time(fcst_df_long$fcst_date,'%y-%m-%d'))
+fcst_df_long$unit_sales <- as.numeric(fcst_df_long$unit_sales)
+colnames(fcst_df_long)[3] <- "sales_pred"
+
+train_valid$date <- as.Date(parse_date_time(train_valid$date, '%y-%m-%d'))
+train_comb <- left_join(train_valid, fcst_df_long, 
+                        c("store_item_nbr" = "store_item_nbr", 'date' = 'fcst_date'))
+train_comb$sales_pred[train_comb$sales_pred < 0] <- 0
+train_comb$unit_sales[train_comb$unit_sales < 0] <- 0
+
+train_save <- train_comb[,c(1:6,8,ncol(train_comb))]
+save(train_save, file = paste0("./output/ets_lambda_0.5.RData"))
+# calculate the score of accuracy prediction on validation set
+w <- ifelse(train_comb$perishable == 0, 1, 1.25)
+score1 <- sqrt(sum(w * (log(train_comb$sales_pred + 1) - log(train_comb$unit_sales + 1))^2)/sum(w))
+
+```
+
+
+```{r}
+# performance on test dataset
+test <-fread('./output/combined_test.csv')
+test$date <- as.Date(parse_date_time(test$date,'%y-%m-%d'))
+
+train_sub_wide1 <- dcast(train, store_item_nbr ~ date, mean, value.var = "unit_sales", fill = 0)
+train_ts1 <- ts(train_sub_wide1, frequency = 7) 
+
+fcst_intv1 = 365  # number of days of forecast in the test set
+fcst_matrix1 <- matrix(NA,nrow=nrow(train_ts1),ncol=fcst_intv1)
+
+# forecast the sales in test set
+registerDoMC(detectCores()-1)
+fcst_matrix1 <- foreach(i=1:nrow(train_ts1),.combine=rbind, .packages=c("forecast")) %dopar% { 
+  fcst_matrix1 <- forecast(ets(train_ts1[i,], lambda = 0.5),h=fcst_intv1)$mean
+}
+colnames(fcst_matrix1) <- as.character(seq(from = as.Date("2016-08-16"), 
+                                          to = as.Date("2017-08-15"), 
+                                          by = 'day'))
+fcst_df1 <- as.data.frame(cbind(train_sub_wide1[, 1], fcst_matrix1)) 
+colnames(fcst_df1)[1] <- "store_item_nbr"
+
+fcst_df_long1 <- melt(fcst_df1, id = 'store_item_nbr', 
+                              variable.name = "fcst_date", 
+                              value.name = 'unit_sales')
+fcst_df_long1$store_item_nbr <- as.character(fcst_df_long1$store_item_nbr)
+fcst_df_long1$fcst_date <- as.Date(parse_date_time(fcst_df_long1$fcst_date,'%y-%m-%d'))
+fcst_df_long1$unit_sales <- as.numeric(fcst_df_long1$unit_sales)
+colnames(fcst_df_long1)[3] <- "sales_pred"
+
+test_comb <- left_join(test, fcst_df_long1, 
+                        c("store_item_nbr" = "store_item_nbr", 'date' = 'fcst_date'))
+test_comb$sales_pred[test_comb$sales_pred < 0] <- 0
+test_comb$unit_sales[test_comb$unit_sales < 0] <- 0
+
+# calculate the score of accuracy prediction on validation set
+w1 <- ifelse(test_comb$perishable == 0, 1, 1.25)
+test_score <- sqrt(sum(w1 * (log(test_comb$sales_pred + 1) - log(test_comb$unit_sales + 1))^2)/sum(w1))
+```
