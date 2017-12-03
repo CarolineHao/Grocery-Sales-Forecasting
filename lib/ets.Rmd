@@ -33,7 +33,7 @@ fcst_intv = length(unique(train_valid$date))  # number of days of forecast in th
 fcst_matrix <- matrix(NA,nrow=nrow(train_ts),ncol=fcst_intv)
 
 # forecast the sales in validation set
-lam.ranges <- seq(0.1, 0.9, by = 0.1)
+lam.ranges <- seq(0.1, 5, by = 0.2)
 valid_score <- rep(NA, length(lam.ranges))
 ```
 
@@ -71,6 +71,7 @@ for (i in 1:length(lam.ranges)){
   w <- ifelse(train_comb$perishable == 0, 1, 1.25)
   valid_score[i] <- sqrt(sum(w * (log(train_comb$sales_pred + 1) - log(train_comb$unit_sales + 1))^2)/sum(w))
 }
+save(valid_score, file = "./output/valid_score.RData")
 ```
 
 
@@ -109,6 +110,7 @@ test_comb <- left_join(test, fcst_df_long1,
 test_comb$sales_pred[test_comb$sales_pred < 0] <- 0
 test_comb$unit_sales[test_comb$unit_sales < 0] <- 0
 
+save(test_comb, file = "./output/test_comb.RData")
 # calculate the score of accuracy prediction on validation set
 w1 <- ifelse(test_comb$perishable == 0, 1, 1.25)
 test_score <- sqrt(sum(w1 * (log(test_comb$sales_pred + 1) - log(test_comb$unit_sales + 1))^2)/sum(w1))
