@@ -1,6 +1,6 @@
 ---
 title: "Project 5: Corporación Favorita Grocery Sales Forecasting - Group 1"
-author: "Shiqi Duan"
+author: "Shiqi Duan, Peter Li"
 date: "2017/12/4"
 output: 
   pdf_document:
@@ -385,6 +385,8 @@ if(run.rf){
   
   train.rf <- train[,-c(1,3,4,8,16,17,19)]
   train.rf$celebrated[is.na(train.rf$celebrated)] <- FALSE
+  train.rf$family <- factor(train.rf$family)
+  train.rf$celebrated <- factor(train.rf$celebrated)
 
   set.seed(2)
   n_train <- nrow(train.rf)
