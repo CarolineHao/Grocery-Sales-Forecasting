@@ -1,0 +1,6 @@
+load("/Users/duanshiqi/Documents/GitHub/fall2017-project5-group1/output/ets/ets_lambda_1.1.RData")
+a=train_save
+dim(a)
+head(a)
+length(unique(a$id))
+length(unique(a$V1))
