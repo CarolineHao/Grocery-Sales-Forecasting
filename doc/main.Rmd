@@ -253,6 +253,8 @@ colnames(test_ets)[3] <- "ets_pred"
 
 ### Step 2.3 Prophet
 
+In this model, we tune the parameter changepoint.prior.scale of the Prophet Modeling framework, as this dictates the flexilibty of the automatic changepoint selection in the model.
+
 ```{r}
 run.prophet = FALSE #if TRUE, run train-validation process on Prophet model and run the prediction on test using best Prophet model
 
