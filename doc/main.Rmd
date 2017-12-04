@@ -33,8 +33,8 @@ Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula]
 
 ## Step 0: Load the packages, specify directories
 
-```{r}
-packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach")
+```{r, message=FALSE, warning=FALSE}
+packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach","xgboost","readr","randomForest")
 packages.needed=setdiff(packages.used, intersect(installed.packages()[,1], packages.used))
 if(length(packages.needed)>0){
   install.packages(packages.needed, dependencies = TRUE)
@@ -48,6 +48,10 @@ library(forecast)
 library(doMC)
 library(foreach)
 library(dplyr)
+library(xgboost)
+library(readr)
+library(randomForest)
+
 setwd("~/Documents/GitHub/fall2017-project5-group1/doc")
 ```
 ## Step 1: Load and process the data
@@ -194,6 +198,8 @@ if(run.ets){
 }
 
 # the best parameter lambda
+plot(lam.ranges, valid_score, col="blue", xlab="lambda in ETS", ylab="evaluation score",type="o")
+points(lam.ranges,valid_score,type="o")
 ets.par <- lam.ranges[which.min(valid_score)]
 print(paste0("the best lambda in ETS is ", ets.par))
 
@@ -246,5 +252,63 @@ colnames(test_ets)[3] <- "ets_pred"
 ### Step 2.2 ARIMA
 ### Step 2.3 Prophet
 ### Step 2.4 XgBoost
-### Step 2.5 Random Forest
+```{r}
 
+```
+### Step 2.5 Random Forest
+```{r}
+run.rf = FALSE #if TRUE, run RF on the whole train set using 5-fold cross-validation
+if(run.rf){
+  # process the whole train data so they can be used in RF smoothly
+  train$onpromotion <- ifelse(train$onpromotion == TRUE, 1, 0)
+  train$unit_sales[train$unit_sales < 0] <- 0
+  
+  train.rf <- train[,-c(1,3,4,8,16,17,19)]
+  train.rf$celebrated[is.na(train.rf$celebrated)] <- FALSE
+
+  set.seed(2)
+  n_train <- nrow(train.rf)
+  K <- 5 #5-fold cross-validation
+  n.fold <- floor(n_train/K)
+  s <- sample(rep(1:K, c(rep(n.fold, K-1), n_train-(K-1)*n.fold)))
+  
+  cv_score.rf <- rep(NA, K)
+  opt.mtry <- rep(NA, K) #optimal mtry for a certain fold
+  
+  n_trees <- seq(100, 10000, 100)
+  cv.ntree.score <- rep(NA, length(n_trees)) # mean cv-score for certain n_tree value
+  best.ntree.mtry <- rep(NA, length(n_trees)) # best mtry for certain n_tree value
+  
+  # run the cross-validation
+  for (j in 1:length(n_trees)){
+    for (i in 1:K){
+      train.data <- train.rf[s != i,]
+      #train.label <- y.train[s != i]
+      test.data <- train.rf[s == i,]
+      #test.label <- y.train[s == i]
+  
+      fit <- tuneRF(train.data[,-"unit_sales"], train.data$unit_sales,
+                 ntreeTry = n_trees[j], 
+                  doBest = TRUE)
+ 
+     # Get the 'mtry' for trained model
+      opt.mtry[i] <- fit$mtry
+      pred <- predict(fit, test.data[,-c("unit_sales")])
+      w <- ifelse(test.data$perishable == 0, 1, 1.25)
+      cv_score.rf[i] <- sqrt(sum(w * (log(pred + 1) - log(test.data$unit_sales + 1))^2)/sum(w))
+    }
+  
+    # Get the lowest error rate of cross validation
+    cv.ntree.score[j] <- mean(cv_score.rf)
+    best.ntree.mtry[j] <- opt.mtry[which.min(cv_score.rf)]
+  }
+  
+  
+}
+```
+## Step 3: The Second Stack
+
+In the second Stack, we train Random Forest Models on the validation set use the features from Step 2 by a 5-fold cross-validation
+```{r}
+
+```
