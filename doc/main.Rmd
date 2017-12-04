@@ -254,7 +254,6 @@ colnames(test_ets)[3] <- "ets_pred"
 ### Step 2.3 Prophet
 
 In this model, we tune the parameter changepoint.prior.scale of the Prophet Modeling framework, as this dictates the flexilibty of the automatic changepoint selection in the model.
-
 ```{r}
 run.prophet = FALSE #if TRUE, run train-validation process on Prophet model and run the prediction on test using best Prophet model
 
@@ -316,11 +315,11 @@ if(run.prophet){
 # the best parameter lambda
 plot(lam.ranges, valid_score, col="blue", xlab="Changepoint Prior Scale in Prophet Model", ylab="evaluation score",type="o")
 points(lam.ranges,valid_score,type="o")
-ets.par <- lam.ranges[which.min(valid_score)]
-print(paste0("the best Changepoint Prior Scale in Prophet Model is ", ets.par))
+prophet.par <- lam.ranges[which.min(valid_score)]
+print(paste0("the best Changepoint Prior Scale in Prophet Model is ", prophet.par))
 
 
-load(paste0("../output/prophet_changepoint_",ets.par,".RData"))
+load(paste0("../output/prophet_changepoint_",prophet.par,".RData"))
 valid_prophet <- train_save%>%select(V1, id, sales_pred)
 colnames(valid_prophet)[3] <- "prophet_pred"
 
