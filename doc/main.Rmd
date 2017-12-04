@@ -396,7 +396,7 @@ if(run.rf){
   cv_score.rf <- rep(NA, K)
   opt.mtry <- rep(NA, K) #optimal mtry for a certain fold
   
-  n_trees <- seq(100, 10000, 100)
+  n_trees <- seq(500, 1000, 100)
   cv.ntree.score <- rep(NA, length(n_trees)) # mean cv-score for certain n_tree value
   best.ntree.mtry <- rep(NA, length(n_trees)) # best mtry for certain n_tree value
   
@@ -404,10 +404,8 @@ if(run.rf){
   for (j in 1:length(n_trees)){
     for (i in 1:K){
       train.data <- train.rf[s != i,]
-      #train.label <- y.train[s != i]
       test.data <- train.rf[s == i,]
-      #test.label <- y.train[s == i]
-  
+
       fit <- tuneRF(train.data[,-"unit_sales"], train.data$unit_sales,
                  ntreeTry = n_trees[j], 
                   doBest = TRUE)
