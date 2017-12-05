@@ -465,7 +465,7 @@ if(run.rf){
 # the best parameter ntree
 plot(n_trees, score_rf, col="blue", xlab="Number of trees in Random Forest", ylab="evaluation score",type="o")
 points(n_trees,score_rf,type="o")
-rf.par <- n_trees[which.min(score_rf)]
+rf.par <- n_trees[which.min(score.rf)]
 print(paste0("the best ntree in Random Forest is ", rf.par))
 
 load(paste0("../output/RF_ntree",rf.par,".RData"))
