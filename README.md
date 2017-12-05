@@ -14,15 +14,20 @@ Term: Fall 2017
 	+ Peter Li pwl2107@columbia.edu
 	 
 
-+ Method: Overall we use Stacking method. That is, we build two layers. In the first layer, we obtain the prediction results from each first-layer model and use these results as features in the second layer to get the final prediction values. 
+**Method: Overall we use Stacking method. That is, we build two layers. In the first layer, we obtain the prediction results from each first-layer model and use these results as features in the second layer to get the final prediction values. 
         
 First Stack
 - Time Series models
+
 — - ETS (Exponential Smoothing State Space Model)
+
 - - ARIMA
+
 — - Prophet
 - Machine Learning models
+
 — - XgBoost
+
 - - Random Forest
 
 Second Stack
@@ -31,9 +36,9 @@ Second Stack
 - GBM
 
 
-+ Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula](https://www.kaggle.com/c/favorita-grocery-sales-forecasting#evaluation).
+**Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula](https://www.kaggle.com/c/favorita-grocery-sales-forecasting#evaluation).
 
-+ Project summary: 	
+**Project summary: 	
 
 ### Main file: [main.Rmd](doc/main.Rmd) or [the PDF version](doc/main.pdf).   
 
