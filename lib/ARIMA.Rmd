@@ -4,6 +4,8 @@ output: html_document
 ---
 
 ```{r,warning = FALSE}
+#Loaded relevant packages and data
+
 library('ggplot2')
 library('forecast')
 library('tseries')
@@ -18,8 +20,9 @@ subtrain = subtrain[ ,c("date","store_item_nbr","unit_sales")]
 subtrain $ Date = as.Date(subtrain$date)
 
 validation = read.csv("~/Desktop/validation.csv",stringsAsFactors=FALSE)
-validation = validation[ ,c("date","store_item_nbr","unit_sales","perishable")]
+validation_sub = validation[ ,c("date","store_item_nbr","unit_sales","perishable")]
 
+#Rashaped the subtrain set
 train_sub = dcast(subtrain, store_item_nbr ~ Date, mean,
                         value.var = "unit_sales", fill = 0)
 
@@ -27,6 +30,7 @@ sum(is.na(train_sub))
 a = seq(from=as.Date("2016-04-16"), to=as.Date("2016-08-15"),by = 'day')
 wide = length(a)
 
+#Predict ARIMA(Try several times here is the best parameters)
 fc.wiki = foreach(i=1:nrow(train_sub), .combine=rbind,
                   .packages="forecast") %dopar% {
   y = tsclean(as.ts(unlist(train_sub[i, -1])))
@@ -34,7 +38,7 @@ fc.wiki = foreach(i=1:nrow(train_sub), .combine=rbind,
 }
 
 
-colnames(fc.wiki) <- as.character(seq(from = as.Date("2016-04-16"), 
+colnames(fc.wiki) = as.character(seq(from = as.Date("2016-04-16"), 
                                             to = as.Date("2016-08-15"), 
                                             by = 'day'))
 
@@ -44,34 +48,62 @@ colnames(train_result) [1] = "store_item_nbr"
 head(train_result)
 subtrain_result = as.data.frame(train_result)
 
+#Reshaped the predict dataset again
 train_result_long = melt(subtrain_result, id = "store_item_nbr", variable.name = "Date", value.name = "sales_pred")
 train_result_long $ Date = as.Date(train_result_long $ Date)
 train_result_long $sales_pred = as.numeric(train_result_long $ sales_pred)
 #saveRDS(train_result_long,file = "train_result_long")
 save(train_result_long, file = "train_result_long.RData")
-
 ```
 
 
 
 ```{r}
-validation = read.csv("~/Desktop/validation.csv",stringsAsFactors=FALSE)
-validation = validation[ ,c("date","store_item_nbr","unit_sales","perishable")]
-validation $ date = as.Date(validation$date)
-
+#Got the final results dataframe and save as RData
 train_comb = left_join(validation, train_result_long,
                         c("store_item_nbr" =
                             "store_item_nbr",'date' = 'Date'))
 train_comb$sales_pred[train_comb$sales_pred < 0] = 0
 train_comb$unit_sales[train_comb$unit_sales < 0] = 0
-save(train_comb, file = "ARIMA Feature.RData")
+save(train_comb, file = "ARIMA Feature validate.RData")
 
 
- w = ifelse(train_comb$perishable == 0, 1, 1.25)
- valid_score = sqrt(sum(w * (log(train_comb$sales_pred + 1) -
-                               log(train_comb$unit_sales +
+#Final Score 
+w = ifelse(train_comb$perishable == 0, 1, 1.25)
+valid_score = sqrt(sum(w * (log(as.numeric(train_comb$sales_pred) + 1) -
+                               log(as.numeric(train_comb$unit_sales) +
                                      1))^2)/sum(w))
 
 valid_score
-
+# 0.5790228
 ```
+
+
+
+```{r}
+#Used the trainning result to the test set
+test = read.csv("~/Desktop/our_test.csv",stringsAsFactors=FALSE)
+wide = length(unique(test$date))
+
+fc.wiki = foreach(i=1:nrow(train_sub), .combine=rbind,
+                  .packages="forecast") %dopar% {
+  y = tsclean(as.ts(unlist(train_sub[i, -1])))
+  forecast(auto.arima(y, max.p=2, max.d=2, max.q=1), h=wide)$mean
+}
+colnames(fc.wiki) = as.character(unique(test$date))
+test_result = cbind(train_sub[, 1], fc.wiki)
+colnames(test_result) [1] = "store_item_nbr"
+test_result = as.data.frame(test_result)
+
+test_result_long = melt(test_result, id = "store_item_nbr", variable.name = "Date", value.name = "sales_pred")
+test_result_long$Date = as.Date(test_result_long$Date)
+
+test_result_long$sales_pred = as.numeric(test_result_long$sales_pred)
+test $ date = as.Date(test $ date)
+test_comb = left_join(test, test_result_long,
+                        c("store_item_nbr" =
+                            "store_item_nbr",'date' = 'Date'))
+
+save(test_comb, file = "ARIMA Feature test.RData")
+```
+
