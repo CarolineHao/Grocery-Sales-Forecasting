@@ -34,9 +34,9 @@ Second Stack
 
 
 
-+ Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula](https://www.kaggle.com/c/favorita-grocery-sales-forecasting#evaluation).
+**Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula](https://www.kaggle.com/c/favorita-grocery-sales-forecasting#evaluation).
 
-+ Project summary: 	
+**Project summary: 	
 
 ### Main file: [main.Rmd](doc/main.Rmd) or [the PDF version](doc/main.pdf).   
 
