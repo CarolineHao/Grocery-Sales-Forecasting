@@ -34,7 +34,7 @@ Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula]
 ## Step 0: Load the packages, specify directories
 
 ```{r, message=FALSE, warning=FALSE}
-packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach","xgboost","readr","randomForest")
+packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach","xgboost","readr","randomForest","prophet")
 packages.needed=setdiff(packages.used, intersect(installed.packages()[,1], packages.used))
 if(length(packages.needed)>0){
   install.packages(packages.needed, dependencies = TRUE)
@@ -51,6 +51,7 @@ library(dplyr)
 library(xgboost)
 library(readr)
 library(randomForest)
+library(prophet)
 
 setwd("~/Documents/GitHub/fall2017-project5-group1/doc")
 ```
