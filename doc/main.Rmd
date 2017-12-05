@@ -569,10 +569,9 @@ test$mean_pred = rowMeans(test[,c(5:9)])
 
 save(train_x,test,file="../output/stack2_linear.RData")
 
-}
-else {
+} else {
   
-  load(../output/stack2_linear.RData)
+  load("../output/stack2_linear.RData")
   
 }
 
