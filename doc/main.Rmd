@@ -334,7 +334,8 @@ if(run.xgboost){
   combined_test <- df_format(test)
   combined_valid <- df_format(valid_train)
   
-  features <- c('item_nbr', 'id', 'store_nbr', 'onpromotion', 'year', 'month', 'dayOfWeek', 'class', 'perishable', 'dcoilwtico')
+  features <- c('item_nbr', 'id', 'store_nbr', 'onpromotion', 'year', 'month', 'dayOfWeek', 'class',
+                'perishable', 'dcoilwtico')
 
   dtrain <- xgb.DMatrix(data = as.matrix(combined_train[, features]), label = combined_train$log_sales)
   dtest <- xgb.DMatrix(data = as.matrix(combined_test[, features]), label = combined_test$log_sales)
