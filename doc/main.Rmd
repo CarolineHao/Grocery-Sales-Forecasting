@@ -34,7 +34,7 @@ Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula]
 ## Step 0: Load the packages, specify directories
 
 ```{r, message=FALSE, warning=FALSE}
-packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach","xgboost","readr","randomForest", "caret", "mlr","prophet")
+packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach","xgboost","readr","randomForest", "caret", "mlr","prophet","tseries","doParallel")
 packages.needed=setdiff(packages.used, intersect(installed.packages()[,1], packages.used))
 if(length(packages.needed)>0){
   install.packages(packages.needed, dependencies = TRUE)
@@ -54,6 +54,9 @@ library(randomForest)
 library(prophet)
 library(caret)
 library(mlr)
+library(tseries)
+library(doParallel) 
+
 
 setwd("~/Documents/GitHub/fall2017-project5-group1/doc")
 ```
@@ -247,13 +250,83 @@ if(run.ets){
   test_comb$unit_sales[test_comb$unit_sales < 0] <- 0
 
   save(test_comb, file = "../output/ets/test_comb.RData")
+}else{
+  load("../output/ets/test_comb.RData")
 }
-load("../output/ets/test_comb.RData")
 test_ets <- test_comb%>%select(V1, id, sales_pred)
 colnames(test_ets)[3] <- "ets_pred"
 ```
 ### Step 2.2 ARIMA
+```{r}
+run.arima = FALSE #if TRUE, train ARIMA model and predict using ARIMA model on main.Rmd
+if(run.arima){
+  subtrain1 = subtrain[ ,c("date","store_item_nbr","unit_sales")]
+  subtrain1$Date = as.Date(subtrain$date)
+  validation = valid_train[ ,c("date","store_item_nbr","unit_sales","perishable")]
+  
+  train_sub = dcast(subtrain1, store_item_nbr ~ Date, mean, value.var = "unit_sales", fill = 0)
+  a = seq(from=as.Date("2016-04-16"), to=as.Date("2016-08-15"),by = 'day')
+  wide = length(a)
 
+  #Predict ARIMA(Try several times here is the best parameters)
+  fc.wiki = foreach(i=1:nrow(train_sub), .combine=rbind, .packages="forecast") %dopar% {
+  y = tsclean(as.ts(unlist(train_sub[i, -1])))
+  forecast(auto.arima(y, max.p=2, max.d=2, max.q=1), h=wide)$mean
+  }
+
+  colnames(fc.wiki) = as.character(seq(from = as.Date("2016-04-16"), 
+                                       to = as.Date("2016-08-15"), 
+                                       by = 'day'))
+
+  train_result = cbind(train_sub[, 1], fc.wiki)
+  rownames(train_result) = rownames(train_sub)
+  colnames(train_result) [1] = "store_item_nbr"
+  subtrain_result = as.data.frame(train_result)
+
+  #Reshaped the predict dataset again
+  train_result_long = melt(subtrain_result, id = "store_item_nbr", variable.name = "Date", value.name =
+                             "sales_pred")
+  train_result_long$Date = as.Date(train_result_long$Date)
+  train_result_long $sales_pred = as.numeric(train_result_long$sales_pred)
+  #Get the final results dataframe and save as RData
+  train_comb = left_join(validation, train_result_long,
+                         c("store_item_nbr" = "store_item_nbr",'date' = 'Date'))
+  train_comb$sales_pred[train_comb$sales_pred < 0] = 0
+  train_comb$unit_sales[train_comb$unit_sales < 0] = 0
+  save(train_comb, file = "ARIMA Feature validate.RData")
+  
+  #Used the trainning result to the test set
+  wide = length(unique(test$date))
+  fc.wiki = foreach(i=1:nrow(train_sub), .combine=rbind,
+                    .packages="forecast") %dopar% {
+    y = tsclean(as.ts(unlist(train_sub[i, -1])))
+    forecast(auto.arima(y, max.p=2, max.d=2, max.q=1), h=wide)$mean
+  }
+  colnames(fc.wiki) = as.character(unique(test$date))
+  test_result = cbind(train_sub[, 1], fc.wiki)
+  colnames(test_result) [1] = "store_item_nbr"
+  test_result = as.data.frame(test_result)
+
+  test_result_long = melt(test_result, id = "store_item_nbr", variable.name = "Date", value.name =
+                            "sales_pred")
+  test_result_long$Date = as.Date(test_result_long$Date)
+
+  test_result_long$sales_pred = as.numeric(test_result_long$sales_pred)
+  test$date = as.Date(test $ date)
+  test_comb = left_join(test, test_result_long,
+                          c("store_item_nbr" =
+                              "store_item_nbr",'date' = 'Date'))
+
+  save(test_comb, file = "ARIMA Feature test.RData")
+}else{
+  load("../output/ARIMA Feature validate.RData")
+  load("../output/ARIMA Feature Test.RData")
+}
+valid_arima <- train_comb[,c(2,4,21)]
+colnames(valid_arima)[3] <- "arima_pred"
+test_arima <- test_comb[,c(1:3, 8, 9)]
+colnames(test_arima)[5] <- "arima_pred"
+```
 ### Step 2.3 Prophet
 
 Prophet is an open-source modeling framework developed at Facebook used to provide automated forecasting specificly aimed at solving problems regarding effecient allocation of resources over time for capacity planning. Due to the nature of how the automated forecasting is structured, the function tunes the parameters, so no parameter selection is needed from us.
@@ -502,7 +575,29 @@ test_rf <- rf_pred1
 ```
 ### Step 2.6 Combine Features
 ```{r}
+run.merge = FALSE #if TRUE, combine the features from the first Stack in main.Rmd
+if(run.merge){
+  # Combine features on validation set
+  comb_valid <- merge(valid_ets, valid_prophet, by.x = c("V1","id"), by.y = c("V1", "id"))
+  valid_train$rf_pred <- valid_rf
+  valid_train$xgboost_pred <- valid_xgboost
+  comb_valid <- merge(valid_train[,c(1:6, 8, 15, 20, 21)], comb_valid, by.x = c("V1", "id"), by.y = c("V1",
+                                                                                                      "id"))
+  comb_valid <- merge(comb_valid, valid_arima, by.x=c("V1", "id"), by.y = c("V1", "id"))
+  save(comb_valid, file="../output/comb_validFeatures.RData")
 
+  # Combine feature on test set
+  comb_test <- merge(test_ets, test_prophet, by.x = c("V1","id"), by.y = c("V1", "id"))
+  test$rf_pred <- test_rf
+  test$xgboost_pred <- test_xgboost
+  comb_test <- merge(test[,c(1:6, 8, 15, 20, 21)], comb_test, by.x = c("V1", "id"), by.y = c("V1", "id"))
+  comb_test <- merge(comb_test, test_arima, by.x = "id", by.y ="id")
+  comb_test <- comb_test[,-c(13:15)]
+  save(comb_test, file="../output/comb_testFeatures.RData")
+}else{
+  load("../output/comb_validFeatures.RData")
+  load("../output/comb_testFeatures.RData")
+}
 ```
 
 
