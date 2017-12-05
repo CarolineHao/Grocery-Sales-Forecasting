@@ -603,7 +603,7 @@ if(run.merge){
 
 ## Step 3: The Second Stack
 
-In the second Stack, we train Random Forest Models on the validation set use the features from Step 2 by a 5-fold cross-validation
+In the second Stack, we train Models on the validation set use the features from Step 2 
 ```{r}
 
 ```
