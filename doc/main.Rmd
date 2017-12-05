@@ -397,6 +397,7 @@ if(run.xgboost){
 }else{
   load("../output/xgboost/features_test.RData")
   load("../output/xgboost/features_valid.RData")
+}
 
 valid_xgboost <- features_valid
 test_xgboost <- features_test
