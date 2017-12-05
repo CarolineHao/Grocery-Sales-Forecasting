@@ -480,7 +480,7 @@ if(run.rf){
   valid_rf$family <- factor(valid_rf$family)
   valid_rf$celebrated <- factor(valid_rf$celebrated)
   
-  rf_pred <- predict(fit, valid_rf[,-c("unit_sales")])
+  rf_pred <- predict(fit, valid_rf[,-which(colnames(valid_rf) == "unit_sales")])
   save(rf_pred, file=paste0("../output/RF_validion.RData"))
   # predict on test set
   test_rf <- test
@@ -492,7 +492,7 @@ if(run.rf){
   test_rf$family <- factor(test_rf$family)
   test_rf$celebrated <- factor(test_rf$celebrated)
   
-  rf_pred1 <- predict(fit, test_rf[,-c("unit_sales")])
+  rf_pred1 <- predict(fit, test_rf[,-which(colnames(test_rf) == "unit_sales")])
   save(rf_pred1, file=paste0("../output/RF_test.RData"))
 }else{
   load("../output/RF_validion.RData")
