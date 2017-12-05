@@ -315,7 +315,9 @@ colnames(test_prophet)[3] <- "prophet_pred"
 ```
 ### Step 2.5 Random Forest
 ```{r}
-run.rf = FALSE #if TRUE, run RF on the whole train set using 5-fold cross-validation
+run.rf = FALSE #if TRUE, run RF on the samples from the whole train set and predict sales on validation and test set
+
+n_trees <- seq(500, 1000, 100)
 if(run.rf){
   # process the whole train data so they can be used in RF smoothly
   train$onpromotion <- ifelse(train$onpromotion == TRUE, 1, 0)
@@ -328,41 +330,75 @@ if(run.rf){
 
   set.seed(2)
   n_train <- nrow(train.rf)
-  K <- 5 #5-fold cross-validation
+  K <- 100 #sample the data into 100 folds
   n.fold <- floor(n_train/K)
   s <- sample(rep(1:K, c(rep(n.fold, K-1), n_train-(K-1)*n.fold)))
   
-  cv_score.rf <- rep(NA, K)
-  opt.mtry <- rep(NA, K) #optimal mtry for a certain fold
-  
   n_trees <- seq(500, 1000, 100)
-  cv.ntree.score <- rep(NA, length(n_trees)) # mean cv-score for certain n_tree value
-  best.ntree.mtry <- rep(NA, length(n_trees)) # best mtry for certain n_tree value
+  score.rf <- rep(NA, length(n_trees))
+  opt.mtry <- rep(NA, length(n_trees)) #optimal mtry for a certain n_tree value
   
-  # run the cross-validation
-  for (j in 1:length(n_trees)){
-    for (i in 1:K){
-      train.data <- train.rf[s != i,]
-      test.data <- train.rf[s == i,]
+  # run the RF on random sampled data
+  for (i in 1:length(n_trees)){
+    train.data <- train.rf[s == i,]
+    test.data <- train.rf[s == 100-i,]
 
-      fit <- tuneRF(train.data[,-"unit_sales"], train.data$unit_sales,
-                 ntreeTry = n_trees[j], 
-                  doBest = TRUE)
+    fit <- tuneRF(train.data[,-"unit_sales"], train.data$unit_sales,
+                ntreeTry = n_trees[i], 
+                doBest = TRUE)
  
-     # Get the 'mtry' for trained model
-      opt.mtry[i] <- fit$mtry
-      pred <- predict(fit, test.data[,-c("unit_sales")])
-      w <- ifelse(test.data$perishable == 0, 1, 1.25)
-      cv_score.rf[i] <- sqrt(sum(w * (log(pred + 1) - log(test.data$unit_sales + 1))^2)/sum(w))
-    }
-  
-    # Get the lowest error rate of cross validation
-    cv.ntree.score[j] <- mean(cv_score.rf)
-    best.ntree.mtry[j] <- opt.mtry[which.min(cv_score.rf)]
+    # Get the 'mtry' for trained model
+    opt.mtry[i] <- fit$mtry
+    pred <- predict(fit, test.data[,-c("unit_sales")])
+    w <- ifelse(test.data$perishable == 0, 1, 1.25)
+    score.rf[i] <- sqrt(sum(w * (log(pred + 1) - log(test.data$unit_sales + 1))^2)/sum(w))
+    save(fit, file=paste0("../output/RF_ntree",n_trees[i],".RData"))
   }
-  
-  
+  save(score.rf, file="../output/RF_score100.RData")
+  save(opt.mtry, file="../output/RF_mtry.RData")
+}else{
+  load("../output/RF_score100.RData")
+  load("../output/RF_mtry.RData")
 }
+
+# the best parameter ntree
+plot(n_trees, score_rf, col="blue", xlab="Number of trees in Random Forest", ylab="evaluation score",type="o")
+points(n_trees,score_rf,type="o")
+rf.par <- n_trees[which.min(score_rf)]
+print(paste0("the best ntree in Random Forest is ", rf.par))
+
+load(paste0("../output/RF_ntree",rf.par,".RData"))
+if(run.rf){
+  # predict on validation set
+  valid_rf <- valid_train
+  valid_rf$onpromotion <- ifelse(valid_rf$onpromotion == TRUE, 1, 0)
+  valid_rf$unit_sales[valid_rf$unit_sales < 0] <- 0
+  
+  valid_rf <- valid_rf[,-c(1,3,4,8,16,17,19)]
+  valid_rf$celebrated[is.na(valid_rf$celebrated)] <- FALSE
+  valid_rf$family <- factor(valid_rf$family)
+  valid_rf$celebrated <- factor(valid_rf$celebrated)
+  
+  rf_pred <- predict(fit, valid_rf[,-c("unit_sales")])
+  save(rf_pred, file=paste0("../output/RF_validion.RData"))
+  # predict on test set
+  test_rf <- test
+  test_rf$onpromotion <- ifelse(test_rf$onpromotion == TRUE, 1, 0)
+  test_rf$unit_sales[test_rf$unit_sales < 0] <- 0
+  
+  test_rf <- test_rf[,-c(1,3,4,8,16,17,19)]
+  test_rf$celebrated[is.na(test_rf$celebrated)] <- FALSE
+  test_rf$family <- factor(test_rf$family)
+  test_rf$celebrated <- factor(test_rf$celebrated)
+  
+  rf_pred1 <- predict(fit, test_rf[,-c("unit_sales")])
+  save(rf_pred1, file=paste0("../output/RF_test.RData"))
+}else{
+  load("../output/RF_validion.RData")
+  load("../output/RF_test.RData")
+}
+valid_rf <- rf_pred
+test_rf <- rf_pred1
 ```
 ## Step 3: The Second Stack
 
