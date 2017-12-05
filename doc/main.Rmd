@@ -342,18 +342,24 @@ if(run.xgboost){
   dtrain <- xgb.DMatrix(data = as.matrix(combined_train[, features]), label = combined_train$log_sales)
   dtest <- xgb.DMatrix(data = as.matrix(combined_test[, features]), label = combined_test$log_sales)
   dvalid <- xgb.DMatrix(data = as.matrix(combined_valid[, features]), label = combined_valid$log_sales)
-
+  
+  # watchlist, when training we can see the performance on both train and test sets
   watchlist <- list(train=dtrain, test = dtest)
 
+  # gridsearch parameters, when tuning you can specify a list of values to test for
+  # each parameter. The current parameters in this grid represent the best values
+  # for our training set
   searchGridSubCol <- expand.grid(subsample = c(0.7), 
                                   colsample_bytree = c(0.7),
                                   max_depth = c(8),
-                                  min_child = c(1, 5, 10), 
+                                  # min_child = c(1, 5, 10),
+                                  min_child = c(10),
                                   eta = c(0.7),
-                                  gamma = c(0.1, 1, 10))
+                                  # gamma = c(0.1, 1, 10)
+                                  gamma = c(1))
 
   ntrees <- 40
-  system.time(
+  
     rmseErrorsHyperparameters <- apply(searchGridSubCol, 1, function(parameterList){
     
       #Extract Parameters to test
@@ -379,8 +385,9 @@ if(run.xgboost){
       output <- return(c(rmse, trmse, currentSubsampleRate, currentColsampleRate, currentDepth, currentEta,
                          currentMinChild, currentGamma))
     
-    }))
+    })
 
+  # 
   output <- as.data.frame(t(rmseErrorsHyperparameters))
   varnames <- c("TestRMSE", "TrainRMSE", "SubSampRate", "ColSampRate", "Depth", "eta", "currentMinChild",
                 "Gammma")
