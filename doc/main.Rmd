@@ -492,7 +492,8 @@ if(run.rf){
   test_rf$family <- factor(test_rf$family)
   test_rf$celebrated <- factor(test_rf$celebrated)
   
-  rf_pred1 <- predict(fit, test_rf[,-which(colnames(test_rf) == "unit_sales")])
+  del.row <- which(colnames(test_rf) == "unit_sales") # that is 3 here
+  rf_pred1 <- predict(fit, test_rf[,-3])
   save(rf_pred1, file=paste0("../output/RF_test.RData"))
 }else{
   load("../output/RF_validion.RData")
