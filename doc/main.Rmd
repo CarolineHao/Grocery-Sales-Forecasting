@@ -406,6 +406,8 @@ valid_xgboost <- features_valid
 test_xgboost <- features_test
 ```
 ### Step 2.5 Random Forest
+
+As the dataset is quite large, it takes over several hours to train Random Forest on the train set for one cross-validation iteration. So we used resampling method here: randomly sampling the data in K folds. Every time, we choose two folds, one for training Random Forest model, and one for evaluation. After doing this for all the values of ntree, we can get the best Random Forest model. Although this method may have some bias when training the models, it can help obtain a reasonable model in a short time.
 ```{r}
 run.rf = FALSE #if TRUE, run RF on the samples from the whole train set and predict sales on validation and test set
 
