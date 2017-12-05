@@ -16,21 +16,22 @@ Term: Fall 2017
 
 + Method: Overall we use Stacking method. That is, we build two layers. In the first layer, we obtain the prediction results from each first-layer model and use these results as features in the second layer to get the final prediction values. 
         
+
 First Stack
 - Time Series models
-
-— - ETS (Exponential Smoothing State Space Model)
-- - ARIMA
-— - Prophet
-- Machine Learning models
-— - XgBoost
+- - ETS (Exponential Smoothing State Space Model)
+- - ARIMA 
+- - Prophet 
+- Machine Learning models 
+- - XgBoost 
 - - Random Forest
 
 
 Second Stack
 - Linear Regression
 - Random Forest
-- GBM
+- GBM (Gradient Boosting Method)
+
 
 
 + Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula](https://www.kaggle.com/c/favorita-grocery-sales-forecasting#evaluation).
