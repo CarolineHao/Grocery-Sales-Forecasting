@@ -1,0 +1,77 @@
+---
+title: "proj5"
+output: html_document
+---
+
+```{r,warning = FALSE}
+library('ggplot2')
+library('forecast')
+library('tseries')
+library('data.table')     
+library('forecast')
+library('foreach')
+library('doParallel') 
+library("dplyr")
+subtrain = read.csv("~/Desktop/subtrain.csv",stringsAsFactors=FALSE)
+head(subtrain)
+subtrain = subtrain[ ,c("date","store_item_nbr","unit_sales")]
+subtrain $ Date = as.Date(subtrain$date)
+
+validation = read.csv("~/Desktop/validation.csv",stringsAsFactors=FALSE)
+validation = validation[ ,c("date","store_item_nbr","unit_sales","perishable")]
+
+train_sub = dcast(subtrain, store_item_nbr ~ Date, mean,
+                        value.var = "unit_sales", fill = 0)
+
+sum(is.na(train_sub))
+a = seq(from=as.Date("2016-04-16"), to=as.Date("2016-08-15"),by = 'day')
+wide = length(a)
+
+fc.wiki = foreach(i=1:nrow(train_sub), .combine=rbind,
+                  .packages="forecast") %dopar% {
+  y = tsclean(as.ts(unlist(train_sub[i, -1])))
+  forecast(auto.arima(y, max.p=2, max.d=2, max.q=1), h=wide)$mean
+}
+
+
+colnames(fc.wiki) <- as.character(seq(from = as.Date("2016-04-16"), 
+                                            to = as.Date("2016-08-15"), 
+                                            by = 'day'))
+
+train_result = cbind(train_sub[, 1], fc.wiki)
+rownames(train_result) = rownames(train_sub)
+colnames(train_result) [1] = "store_item_nbr"
+head(train_result)
+subtrain_result = as.data.frame(train_result)
+
+train_result_long = melt(subtrain_result, id = "store_item_nbr", variable.name = "Date", value.name = "sales_pred")
+train_result_long $ Date = as.Date(train_result_long $ Date)
+train_result_long $sales_pred = as.numeric(train_result_long $ sales_pred)
+#saveRDS(train_result_long,file = "train_result_long")
+save(train_result_long, file = "train_result_long.RData")
+
+```
+
+
+
+```{r}
+validation = read.csv("~/Desktop/validation.csv",stringsAsFactors=FALSE)
+validation = validation[ ,c("date","store_item_nbr","unit_sales","perishable")]
+validation $ date = as.Date(validation$date)
+
+train_comb = left_join(validation, train_result_long,
+                        c("store_item_nbr" =
+                            "store_item_nbr",'date' = 'Date'))
+train_comb$sales_pred[train_comb$sales_pred < 0] = 0
+train_comb$unit_sales[train_comb$unit_sales < 0] = 0
+save(train_comb, file = "ARIMA Feature.RData")
+
+
+ w = ifelse(train_comb$perishable == 0, 1, 1.25)
+ valid_score = sqrt(sum(w * (log(train_comb$sales_pred + 1) -
+                               log(train_comb$unit_sales +
+                                     1))^2)/sum(w))
+
+valid_score
+
+```
