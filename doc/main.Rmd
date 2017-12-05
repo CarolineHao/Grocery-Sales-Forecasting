@@ -34,7 +34,8 @@ Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula]
 ## Step 0: Load the packages, specify directories
 
 ```{r, message=FALSE, warning=FALSE}
-packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach","xgboost","readr","randomForest","prophet")
+
+packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach","xgboost","readr","randomForest", "caret", "mlr","prophet")
 packages.needed=setdiff(packages.used, intersect(installed.packages()[,1], packages.used))
 if(length(packages.needed)>0){
   install.packages(packages.needed, dependencies = TRUE)
@@ -52,6 +53,8 @@ library(xgboost)
 library(readr)
 library(randomForest)
 library(prophet)
+library(caret)
+library(mlr)
 
 setwd("~/Documents/GitHub/fall2017-project5-group1/doc")
 ```
@@ -312,7 +315,95 @@ colnames(test_prophet)[3] <- "prophet_pred"
 
 ### Step 2.4 XgBoost
 ```{r}
+run.xgboost = FALSE #if TRUE, run all the processing, cross-validation, and prediction process on XgBoost
 
+# process data function
+df_format <- function(df){
+  df$onpromotion[df$onpromotion == FALSE] <- 0
+  df$onpromotion[df$onpromotion == TRUE] <- 1
+
+  df$unit_sales[df$unit_sales < 0] <- 0
+  df$log_sales <- log(df$unit_sales + 1)
+return(df)
+}
+
+if(run.xgboost){
+  # set core number and seed
+  registerDoMC(cores=4)
+  set.seed(6)
+  # process data for XgBoost
+  combined_train <- df_format(train)
+  combined_test <- df_format(test)
+  combined_valid <- df_format(valid_train)
+  
+  features <- c('item_nbr', 'id', 'store_nbr', 'onpromotion', 'year', 'month', 'dayOfWeek', 'class',
+                'perishable', 'dcoilwtico')
+
+  dtrain <- xgb.DMatrix(data = as.matrix(combined_train[, features]), label = combined_train$log_sales)
+  dtest <- xgb.DMatrix(data = as.matrix(combined_test[, features]), label = combined_test$log_sales)
+  dvalid <- xgb.DMatrix(data = as.matrix(combined_valid[, features]), label = combined_valid$log_sales)
+
+  watchlist <- list(train=dtrain, test = dtest)
+
+  searchGridSubCol <- expand.grid(subsample = c(0.7), 
+                                  colsample_bytree = c(0.7),
+                                  max_depth = c(8),
+                                  min_child = c(1, 5, 10), 
+                                  eta = c(0.7),
+                                  gamma = c(0.1, 1, 10))
+
+  ntrees <- 40
+  system.time(
+    rmseErrorsHyperparameters <- apply(searchGridSubCol, 1, function(parameterList){
+    
+      #Extract Parameters to test
+      currentGamma <- parameterList[["gamma"]]
+      currentSubsampleRate <- parameterList[["subsample"]]
+      currentColsampleRate <- parameterList[["colsample_bytree"]]
+      currentDepth <- parameterList[["max_depth"]]
+      currentEta <- parameterList[["eta"]]
+      currentMinChild <- parameterList[["min_child"]]
+    
+      xgboostModelCV <- xgb.cv(data =  dtrain, nrounds = ntrees, nfold = 2, showsd = TRUE, 
+                              metrics = "rmse", verbose = TRUE, "eval_metric" = "rmse",
+                              "objective" = "reg:linear", "max.depth" = currentDepth, "eta" = currentEta,                               
+                              "subsample" = currentSubsampleRate, "colsample_bytree" = currentColsampleRate
+                              , print_every_n = 10, "min_child_weight" = currentMinChild, "gamma" =
+                                currentGamma,
+                              booster = "gbtree",
+                              early_stopping_rounds = 10)
+    
+      xvalidationScores <- as.data.frame(xgboostModelCV$evaluation_log)
+      rmse <- tail(xvalidationScores$test_rmse_mean, 1)
+      trmse <- tail(xvalidationScores$train_rmse_mean,1)
+      output <- return(c(rmse, trmse, currentSubsampleRate, currentColsampleRate, currentDepth, currentEta,
+                         currentMinChild, currentGamma))
+    
+    }))
+
+  output <- as.data.frame(t(rmseErrorsHyperparameters))
+  varnames <- c("TestRMSE", "TrainRMSE", "SubSampRate", "ColSampRate", "Depth", "eta", "currentMinChild",
+                "Gammma")
+  names(output) <- varnames
+  save(output, file = "../output/xgboost/cverror.RData")
+
+  bst <- xgb.train(data=dtrain, eta=0.7, gamma = 1, max_depth = 8,
+                min_child_weight = 10, subsample = 0.7, colsample_bytree = 0.7,
+                nrounds=40, watchlist=watchlist, nthread = 4, objective = "reg:linear")
+
+
+  features_test <- predict(bst, dtest)
+  save(features_test, file = "../output/xgboost/features_test.RData")
+
+  features_valid <- predict(bst, dvalid)
+  save(features_valid, file = "../output/xgboost/features_valid.RData")
+}else{
+  load("../output/xgboost/features_test.RData")
+  load("../output/xgboost/features_valid.RData")
+}
+
+valid_xgboost <- features_valid
+test_xgboost <- features_test
 ```
 ### Step 2.5 Random Forest
 ```{r}
