@@ -34,7 +34,6 @@ Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula]
 ## Step 0: Load the packages, specify directories
 
 ```{r, message=FALSE, warning=FALSE}
-
 packages.used=c("data.table","lubridate","dplyr","date","reshape2","forecast","doMC","foreach","xgboost","readr","randomForest", "caret", "mlr","prophet")
 packages.needed=setdiff(packages.used, intersect(installed.packages()[,1], packages.used))
 if(length(packages.needed)>0){
@@ -435,7 +434,6 @@ if(run.rf){
   n.fold <- floor(n_train/K)
   s <- sample(rep(1:K, c(rep(n.fold, K-1), n_train-(K-1)*n.fold)))
   
-  n_trees <- seq(500, 1000, 100)
   score.rf <- rep(NA, length(n_trees))
   opt.mtry <- rep(NA, length(n_trees)) #optimal mtry for a certain n_tree value
   
@@ -459,7 +457,7 @@ if(run.rf){
   save(opt.mtry, file="../output/RF_mtry.RData")
 }else{
   load("../output/RF_score100.RData")
-  load("../output/RF_mtry.RData")
+  #load("../output/RF_mtry.RData")
 }
 
 # the best parameter ntree
