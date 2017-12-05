@@ -99,7 +99,7 @@ for (j in 1:length(changepoint.scale)){
   train_comb$unit_sales[train_comb$unit_sales < 0] <- 0
 
   train_save <- train_comb[,c(1:6,8,ncol(train_comb))]
-  save(train_save, file = paste0("../output/prophet_changepoint_",changepoint.scale[i],".RData"))
+  save(train_save, file = paste0("../output/prophet_changepoint_",changepoint.scale[j],".RData"))
   # calculate the score of accuracy prediction on validation set
   w <- ifelse(train_comb$perishable == 0, 1, 1.25)
   valid_score[j] <- sqrt(sum(w * (log(train_comb$sales_pred + 1) - log(train_comb$unit_sales + 1))^2)/sum(w))
