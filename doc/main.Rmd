@@ -748,3 +748,9 @@ if(run_rf_stack2){
 }
 ```
 We can see that Random Forest performs better than Average-Feature Prediction as it reduces the error score by over 8% (= 1-score_rf/avg_kaggle_score).
+
+### 3.3 GBM (Gradient Boosting Method)
+
+```{r}
+
+```
