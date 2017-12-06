@@ -691,63 +691,59 @@ run_rf_stack2 = FALSE
 n_tree2 <- seq(500, 1000, 100)
 if(run_rf_stack2){
   train_rf <- comb_valid[,c("date","store_item_nbr","unit_sales","rf_pred","xgboost_pred","ets_pred","prophet_pred","arima_pred","perishable")]
+  train_rf$unit_sales[train_rf$unit_sales < 0] <- 0
   set.seed(2)
   n1 <- nrow(train_rf)
-  K <- 5 #five-fold cross-validation
+  K <- 20 #divide into 20 folds
   n.fold <- floor(n1/K)
-  s <- sample(rep(1:K, c(rep(n.fold, K-1), n_train-(K-1)*n.fold)))
+  s <- sample(rep(1:K, c(rep(n.fold, K-1), n1-(K-1)*n.fold)))
   
-  score.rf2 <- rep(NA,K)
-  opt.mtry2 <- rep(NA,K)
   score.tree <- rep(NA, length(n_tree2))
   mtry.tree <- rep(NA, length(n_tree2))
   
   # run the RF on random sampled data
-  for (j in 1:length(n_tree2)){
-    for(i in 1:K){
-      train.data <- train_rf[s != i,]
-      test.data <- train_rf[s == i,]
+  for (i in 1:length(n_tree2)){
+    train.data <- train_rf[s == i,]
+    test.data <- train_rf[s == 20 - i,]
 
-      fit <- tuneRF(train.data[,-"unit_sales"], train.data$unit_sales,
-                    ntreeTry = n_tree2[j], 
-                    doBest = TRUE)
+    fit <- tuneRF(train.data[,4:8], train.data$unit_sales,
+                  ntreeTry = n_tree2[j], 
+                  doBest = TRUE)
+    save(fit, file=paste0("../output/RF2/fit_",n_tree2[i],"ntree.RData"))
  
-      # Get the 'mtry' for trained model
-      opt.mtry2[i] <- fit$mtry
-      pred <- predict(fit, test.data[,-c("unit_sales")])
-      w <- ifelse(test.data$perishable == 0, 1, 1.25)
-      score.rf2[i] <- sqrt(sum(w * (log(pred + 1) - log(test.data$unit_sales + 1))^2)/sum(w))
-    }
-    # Get the lowest error rate of cross validation
-    score.tree[j] <- mean(score.rf2)
-    mtry.tree[j] <- opt.mtry2[which.min(score.rf2)]
+    # Get the 'mtry' for trained model
+    mtry.tree[i] <- fit$mtry
+    
+    pred <- predict(fit, test.data[,4:8])
+    w <- ifelse(test.data$perishable == 0, 1, 1.25)
+    score.tree[i] <- sqrt(sum(w * (log(pred + 1) - log(test.data$unit_sales + 1))^2)/sum(w))
   }
+
   save(score.tree, file="../output/RF2/score_tree.RData")
-  save(mtry.tree, file="../output/RF2/mtry_tree.RData")
 }else{
   load("../output/RF2/score_tree.RData")
-  load("../output/RF2/mtry_tree.RData")
 }
 best_tree <- n_tree2[which.min(score.tree)]
-best_mtry <- mtry.tree[which.min(score.tree)]
 names(score.tree) <- as.character(n_tree2)
 score.tree
-print(paste0("Best ntree parameter is ",best_tree,", and best mtry parameter is ",best_mtry,"."))
+print(paste0("Best ntree parameter is ",best_tree,"."))
 
 if(run_rf_stack2){
-  test_rf <- comb_test[,c("date","store_item_nbr.x","unit_sales","rf_pred","xgboost_pred","ets_pred","prophet_pred","arima_pred","perishable")]
-  fit <- tuneRF(train.data[,-"unit_sales"], train.data$unit_sales,
-                    ntreeTry = n_tree2[j], 
-                    doBest = TRUE)
- 
-      # Get the 'mtry' for trained model
-      opt.mtry2[i] <- fit$mtry
-      pred <- predict(fit, test.data[,-c("unit_sales")])
-      w <- ifelse(test.data$perishable == 0, 1, 1.25)
-      score.rf2[i] <- sqrt(sum(w * (log(pred + 1) - log(test.data$unit_sales + 1))^2)/sum(w))
+  test_rf <- comb_test[,c("unit_sales","rf_pred","xgboost_pred","ets_pred","prophet_pred","arima_pred","perishable")]
+  test_rf$unit_sales[test_rf$unit_sales < 0] <- 0
   
-  
-  
+  load(paste0("../output/RF2/fit_",best_tree,"ntree.RData"))
+  pred <- predict(fit, test_rf[,2:6])
+  save(pred, file="../output/RF2/test_pred.RData")
+  w <- ifelse(test_rf$perishable == 0, 1, 1.25)
+  score_rf<- sqrt(sum(w * (log(pred + 1) - log(test_rf$unit_sales + 1))^2)/sum(w))
+  print(paste0("the score for RF in stack 2 is", score_rf))
+}else{
+  load("../output/RF2/test_pred.RData")
+  test_rf <- comb_test
+  test_rf$unit_sales[test_rf$unit_sales < 0] <- 0
+  w <- ifelse(test_rf$perishable == 0, 1, 1.25)
+  score_rf<- sqrt(sum(w * (log(pred + 1) - log(test_rf$unit_sales + 1))^2)/sum(w))
+  print(paste0("the score for RF in stack 2 is", score_rf))
 }
-
 ```
