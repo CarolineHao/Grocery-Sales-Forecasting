@@ -26,7 +26,9 @@ Overall we use Stacking method. That is, we build two layers. In the first layer
         
 In the first layer, we take use of both Time Series models as well as supervised machine learning models. For Time Series models, we first train them on the subtrain set with different parameters and use the models on the validation set to compare the performance. Then we get the best model and use that to predict the sales on validation set and test set, and call these results as features_valid and features_test respectively. For machine learning models, we train the models using cross-validation on the whole training set and get the best model. Then we also use the best model to do the same thing on validation set and test set.
         
-In the second layer, we use machine learning models (Random Forest) on the features_valid by cross-validation to find the best model. Then use the best model on feature_test to get the final predicted sales.
+In the second layer, we use machine learning models (Linear Regression, Random Forest, GBM, and Xgboost) on the features_valid by cross-validation or sampling to find the best model. Then use the best model on features_test to get the predicted scores on test set.
+
+After we get the scores from 2nd Stack, we try to use the mean of predictions from the models with good scores as the final prediction. Then use the final prediction to get the final predicted score.
 
 Evaluation: We use the same evaluation formula as on Kaggle [evaluation formula](https://www.kaggle.com/c/favorita-grocery-sales-forecasting#evaluation).
 
@@ -759,6 +761,7 @@ if(run_rf_stack2){
   w <- ifelse(test_rf$perishable == 0, 1, 1.25)
   score_rf<- sqrt(sum(w * (log(pred + 1) - log(test_rf$unit_sales + 1))^2)/sum(w))
   print(paste0("the score for RF in stack 2 is ", score_rf))
+  pred_rf <- pred
 }
 ```
 We can see that Random Forest performs better than Baseline (Average-Feature Prediction) as it reduces the error score by over 8% (= 1-score_rf/avg_kaggle_score).
@@ -812,13 +815,15 @@ if(run.gbm){
       }
     }
   }
-  save(cv_res,file=)
+  save(cv_res,file="../output/GBM_cv_res.RData")
 }else{
-  load()
+  best_parameter <- c(400,2,0.15)
 }
 # find best parameter
-best_parameter<-cv_res[which.min(cv_res$score.gbm),]
-print(paste0("The best n.trees is ",best_parameter[1],", the best interation.depth is ",best_parameter[2],", and the best shrinkage is ",best_parameter[3]))
+#best_parameter<-cv_res[which.min(cv_res$score.gbm),]
+
+print(paste0("The best n.trees is ",best_parameter[1],", the best interation.depth is ",best_parameter[2],", the best shrinkage is ",best_parameter[3], ", and the distribution is Gaussian."))
+
 if(run.gbm){
   best_model<-gbm(train.cv$unit_sales~.,data = train.cv,distribution="gaussian",
                   n.trees = best_parameter[1],interaction.depth = best_parameter[2],
@@ -829,9 +834,10 @@ if(run.gbm){
 }else{
   load("../output/gbm_pred.RData")
 }
+pred_gbm <- 
 w <- ifelse(comb_test_gbm$perishable == 0, 1, 1.25)
-comb_test_gbm$unit_sales[comb_test_gbm$unit_sales < 0] <- 0
-best_score <- sqrt(sum(w * (log(pred + 1) - log(comb_test_gbm$unit_sales + 1))^2)/sum(w))
+comb_test$unit_sales[comb_test$unit_sales < 0] <- 0
+best_score <- sqrt(sum(w * (log(pred_gbm + 1) - log(comb_test$unit_sales + 1))^2)/sum(w))
 
 print(paste0("the score for GBM in stack 2 is ", best_score))
 ```
@@ -925,3 +931,16 @@ xgb_score <- sqrt(sum(w * (log(as.numeric(preds2) + 1) - log(as.numeric(comb_tes
 print(paste0("the score for Xgboost in stack 2 is ", xgb_score))
 ```
 We can see that XgBoost performs better than Baseline (Average-Feature Prediction) as it reduces the error score by over 9% (= 1-xgb_score/avg_kaggle_score).
+## Step 4: Conclusion
+As Random Forest, and XgBoost perform well on 2nd Stack, we would like to try the combinations of these two models.
+```{r}
+# Combine the predictions from the two models as a matrix
+comb_mat <- cbind(pred_rf, preds2)
+
+# Use the average of the predictions from these three models as the final prediction
+final.pred <- rowMeans(comb_mat)
+final.score <- sqrt(sum(w * (log(final.pred + 1) - log(as.numeric(comb_test$unit_sales) + 1))^2)/sum(w))
+
+print(paste0("the final score is ", final.score))
+```
+As the combinations of the predictions from 2nd Stack models Random Forest, and XgBoost do give us better performance, we would like to include this step as our model.
