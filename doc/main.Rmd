@@ -293,7 +293,7 @@ if(run.arima){
                          c("store_item_nbr" = "store_item_nbr",'date' = 'Date'))
   train_comb$sales_pred[train_comb$sales_pred < 0] = 0
   train_comb$unit_sales[train_comb$unit_sales < 0] = 0
-  save(train_comb, file = "ARIMA Feature validate.RData")
+  save(train_comb, file = "../output/ARIMA Feature validate.RData")
   
   #Used the trainning result to the test set
   wide = length(unique(test$date))
@@ -316,8 +316,9 @@ if(run.arima){
   test_comb = left_join(test, test_result_long,
                           c("store_item_nbr" =
                               "store_item_nbr",'date' = 'Date'))
-
-  save(test_comb, file = "ARIMA Feature test.RData")
+  
+  test_comb$sales_pred[test_comb$sales_pred < 0] <- 0
+  save(test_comb, file = "../output/ARIMA Feature test.RData")
 }else{
   load("../output/ARIMA Feature validate.RData")
   load("../output/ARIMA Feature Test.RData")
