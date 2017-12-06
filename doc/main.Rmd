@@ -681,3 +681,70 @@ avg_kaggle_score = sqrt(sum(w * (log(test$mean_pred + 1) - log(test$unit_sales +
 
   
 ```
+### 3.2 Random Forest
+```{r}
+run_rf_stack2 = FALSE
+
+n_tree2 <- seq(500, 1000, 100)
+if(run_rf_stack2){
+  train_rf <- comb_valid[,c("date","store_item_nbr","unit_sales","rf_pred","xgboost_pred","ets_pred","prophet_pred","arima_pred","perishable")]
+  set.seed(2)
+  n1 <- nrow(train_rf)
+  K <- 5 #five-fold cross-validation
+  n.fold <- floor(n1/K)
+  s <- sample(rep(1:K, c(rep(n.fold, K-1), n_train-(K-1)*n.fold)))
+  
+  score.rf2 <- rep(NA,K)
+  opt.mtry2 <- rep(NA,K)
+  score.tree <- rep(NA, length(n_tree2))
+  mtry.tree <- rep(NA, length(n_tree2))
+  
+  # run the RF on random sampled data
+  for (j in 1:length(n_tree2)){
+    for(i in 1:K){
+      train.data <- train_rf[s != i,]
+      test.data <- train_rf[s == i,]
+
+      fit <- tuneRF(train.data[,-"unit_sales"], train.data$unit_sales,
+                    ntreeTry = n_tree2[j], 
+                    doBest = TRUE)
+ 
+      # Get the 'mtry' for trained model
+      opt.mtry2[i] <- fit$mtry
+      pred <- predict(fit, test.data[,-c("unit_sales")])
+      w <- ifelse(test.data$perishable == 0, 1, 1.25)
+      score.rf2[i] <- sqrt(sum(w * (log(pred + 1) - log(test.data$unit_sales + 1))^2)/sum(w))
+    }
+    # Get the lowest error rate of cross validation
+    score.tree[j] <- mean(score.rf2)
+    mtry.tree[j] <- opt.mtry2[which.min(score.rf2)]
+  }
+  save(score.tree, file="../output/RF2/score_tree.RData")
+  save(mtry.tree, file="../output/RF2/mtry_tree.RData")
+}else{
+  load("../output/RF2/score_tree.RData")
+  load("../output/RF2/mtry_tree.RData")
+}
+best_tree <- n_tree2[which.min(score.tree)]
+best_mtry <- mtry.tree[which.min(score.tree)]
+names(score.tree) <- as.character(n_tree2)
+score.tree
+print(paste0("Best ntree parameter is ",best_tree,", and best mtry parameter is ",best_mtry,"."))
+
+if(run_rf_stack2){
+  test_rf <- comb_test[,c("date","store_item_nbr.x","unit_sales","rf_pred","xgboost_pred","ets_pred","prophet_pred","arima_pred","perishable")]
+  fit <- tuneRF(train.data[,-"unit_sales"], train.data$unit_sales,
+                    ntreeTry = n_tree2[j], 
+                    doBest = TRUE)
+ 
+      # Get the 'mtry' for trained model
+      opt.mtry2[i] <- fit$mtry
+      pred <- predict(fit, test.data[,-c("unit_sales")])
+      w <- ifelse(test.data$perishable == 0, 1, 1.25)
+      score.rf2[i] <- sqrt(sum(w * (log(pred + 1) - log(test.data$unit_sales + 1))^2)/sum(w))
+  
+  
+  
+}
+
+```
