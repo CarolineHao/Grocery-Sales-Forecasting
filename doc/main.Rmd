@@ -412,12 +412,16 @@ if(run.xgboost){
   combined_test <- df_format(test)
   combined_valid <- df_format(valid_train)
   
-  features <- c('item_nbr', 'id', 'store_nbr', 'onpromotion', 'year', 'month', 'dayOfWeek', 'class',
+  features <- c('item_nbr', 'id', 'store_nbr', 'onpromotion', 'year', 'month',
+                'dayOfWeek', 'class',
                 'perishable', 'dcoilwtico')
 
-  dtrain <- xgb.DMatrix(data = as.matrix(combined_train[, features]), label = combined_train$log_sales)
-  dtest <- xgb.DMatrix(data = as.matrix(combined_test[, features]), label = combined_test$log_sales)
-  dvalid <- xgb.DMatrix(data = as.matrix(combined_valid[, features]), label = combined_valid$log_sales)
+  dtrain <- xgb.DMatrix(data = as.matrix(combined_train[, features]), label =
+                          combined_train$log_sales)
+  dtest <- xgb.DMatrix(data = as.matrix(combined_test[, features]), label =
+                         combined_test$log_sales)
+  dvalid <- xgb.DMatrix(data = as.matrix(combined_valid[, features]), label =
+                          combined_valid$log_sales)
   
   # watchlist, when training we can see the performance on both train and test sets
   watchlist <- list(train=dtrain, test = dtest)
@@ -436,32 +440,36 @@ if(run.xgboost){
 
   ntrees <- 40
   
-    rmseErrorsHyperparameters <- apply(searchGridSubCol, 1, function(parameterList){
+  rmseErrorsHyperparameters <- apply(searchGridSubCol, 1, function(parameterList){
+    #Extract Parameters to test
+    currentGamma <- parameterList[["gamma"]]
+    currentSubsampleRate <- parameterList[["subsample"]]
+    currentColsampleRate <- parameterList[["colsample_bytree"]]
+    currentDepth <- parameterList[["max_depth"]]
+    currentEta <- parameterList[["eta"]]
+    currentMinChild <- parameterList[["min_child"]]
     
-      #Extract Parameters to test
-      currentGamma <- parameterList[["gamma"]]
-      currentSubsampleRate <- parameterList[["subsample"]]
-      currentColsampleRate <- parameterList[["colsample_bytree"]]
-      currentDepth <- parameterList[["max_depth"]]
-      currentEta <- parameterList[["eta"]]
-      currentMinChild <- parameterList[["min_child"]]
-    
-      xgboostModelCV <- xgb.cv(data =  dtrain, nrounds = ntrees, nfold = 2, showsd = TRUE, 
-                              metrics = "rmse", verbose = TRUE, "eval_metric" = "rmse",
-                              "objective" = "reg:linear", "max.depth" = currentDepth, "eta" = currentEta,                               
-                              "subsample" = currentSubsampleRate, "colsample_bytree" = currentColsampleRate
-                              , print_every_n = 10, "min_child_weight" = currentMinChild, "gamma" =
-                                currentGamma,
+    xgboostModelCV <- xgb.cv(data =  dtrain, nrounds = ntrees, nfold = 2, showsd =
+                               TRUE, 
+                            metrics = "rmse", verbose = TRUE, "eval_metric" = "rmse",
+                            "objective" = "reg:linear", "max.depth" = currentDepth,
+                            "eta" = currentEta,                               
+                            "subsample" = currentSubsampleRate, "colsample_bytree" =
+                              currentColsampleRate, 
+                            print_every_n = 10, "min_child_weight" = currentMinChild,
+                            "gamma" =
+                              currentGamma,
                               booster = "gbtree",
                               early_stopping_rounds = 10)
     
-      xvalidationScores <- as.data.frame(xgboostModelCV$evaluation_log)
-      rmse <- tail(xvalidationScores$test_rmse_mean, 1)
-      trmse <- tail(xvalidationScores$train_rmse_mean,1)
-      output <- return(c(rmse, trmse, currentSubsampleRate, currentColsampleRate, currentDepth, currentEta,
-                         currentMinChild, currentGamma))
+    xvalidationScores <- as.data.frame(xgboostModelCV$evaluation_log)
+    rmse <- tail(xvalidationScores$test_rmse_mean, 1)
+    trmse <- tail(xvalidationScores$train_rmse_mean,1)
+    output <- return(c(rmse, trmse, currentSubsampleRate, currentColsampleRate,
+                       currentDepth, currentEta,
+                       currentMinChild, currentGamma))
     
-    })
+  })
 
   # 
   output <- as.data.frame(t(rmseErrorsHyperparameters))
@@ -660,7 +668,7 @@ if (run_linear_stack2) {
     opt_lambda <- cv_fit$lambda.min
     fit <- cv_fit$glmnet.fit
   
-    ytest_predicted <- predict(fit, s = opt_lambda, newx = model.matrix(~ . , test_x))
+    ytest_predicted <- predict(fit, s = opt_lambda, newx = model.matrix(~ . ,test_x))
     ytrain_predicted <- predict(fit, s = opt_lambda, newx = model.matrix(~ . , x))
   
     train_x$linear_stack_pred[indices_train] = ytrain_predicted
