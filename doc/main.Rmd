@@ -825,9 +825,9 @@ if(run.gbm){
                   shrinkage = best_parameter[3])
   pred<-predict(best_model, newdata=comb_test_gbm,n.trees=best_parameter[1])
   pred[pred < 0] <- 0
-  save(pred, file=)
+  save(pred, file="../output/gbm_pred.RData")
 }else{
-  load()
+  load("../output/gbm_pred.RData")
 }
 w <- ifelse(comb_test_gbm$perishable == 0, 1, 1.25)
 comb_test_gbm$unit_sales[comb_test_gbm$unit_sales < 0] <- 0
