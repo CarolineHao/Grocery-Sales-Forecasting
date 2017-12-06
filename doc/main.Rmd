@@ -472,9 +472,11 @@ if(run.xgboost){
 
 
   features_test <- predict(bst, dtest)
+  features_test <- exp(features_test) - 1
   save(features_test, file = "../output/xgboost/features_test.RData")
 
   features_valid <- predict(bst, dvalid)
+  features_valid <- exp(features_valid) - 1
   save(features_valid, file = "../output/xgboost/features_valid.RData")
 }else{
   load("../output/xgboost/features_test.RData")
