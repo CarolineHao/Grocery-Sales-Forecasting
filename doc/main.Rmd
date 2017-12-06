@@ -293,7 +293,7 @@ if(run.arima){
                          c("store_item_nbr" = "store_item_nbr",'date' = 'Date'))
   train_comb$sales_pred[train_comb$sales_pred < 0] = 0
   train_comb$unit_sales[train_comb$unit_sales < 0] = 0
-  save(train_comb, file = "ARIMA Feature validate.RData")
+  save(train_comb, file = "../output/ARIMA Feature validate.RData")
   
   #Used the trainning result to the test set
   wide = length(unique(test$date))
@@ -316,8 +316,9 @@ if(run.arima){
   test_comb = left_join(test, test_result_long,
                           c("store_item_nbr" =
                               "store_item_nbr",'date' = 'Date'))
-
-  save(test_comb, file = "ARIMA Feature test.RData")
+  
+  test_comb$sales_pred[test_comb$sales_pred < 0] <- 0
+  save(test_comb, file = "../output/ARIMA Feature test.RData")
 }else{
   load("../output/ARIMA Feature validate.RData")
   load("../output/ARIMA Feature Test.RData")
@@ -752,5 +753,25 @@ We can see that Random Forest performs better than Average-Feature Prediction as
 ### 3.3 GBM (Gradient Boosting Method)
 
 ```{r}
+c1 <- comb_valid[,c(6,8:13)]
+c1$unit_sales[c1$unit_sales < 0] <- 0
+w <- ifelse(c1$perishable==0,1,1.25)
+score_valid <- rep(NA,5)
+for(i in 3:7){
+  
+  score_valid[i-2] <- sqrt(sum(w*(log(c1[,i]+1)-log(c1$unit_sales+1))^2)/sum(w))
+}
+names(score_valid) <- colnames(c1)[3:7]
+score_valid
+
+c2 <- comb_test[,c(6,8:13)]
+c2$unit_sales[c2$unit_sales < 0] <- 0
+w <- ifelse(c2$perishable==0,1,1.25)
+score_test <- rep(NA,5)
+for(i in 3:7){
+  pred_test <- c2[,i]
+  score_test[i-2] <- sqrt(sum(w*(log(pred_test+1)-log(c2$unit_sales+1))^2)/sum(w))
+}
+names(score_test) <- colnames(c2)[3:7]
 
 ```
