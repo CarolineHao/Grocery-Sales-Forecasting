@@ -753,5 +753,59 @@ We can see that Random Forest performs better than Baseline(Average-Feature Pred
 ### 3.3 GBM (Gradient Boosting Method)
 
 ```{r}
+library(gbm)
+load("/Users/lijingkai/Documents/fall2017-project5-group1/output/comb_validFeatures.RData")
+load("/Users/lijingkai/Documents/fall2017-project5-group1/output/comb_testFeatures.RData")
+comb_test_gbm<-comb_test[,-c(1,2,3,4,5,7)]
+comb_valid_gbm<-comb_valid[,-c(1,2,3,4,5,7)]
 
+n.trees = c(300,500,800,1000)
+interaction.depth = c(3,5,7,9)
+shrinkage = c(0.01,0.05,0.1,0.15)
+
+set.seed(1)
+
+# sample cv
+nfolds=5
+cv_indices<-sample(nfolds, nrow(comb_valid_gbm),replace=TRUE)
+niter = length(n.trees)*length(interaction.depth)*length(shrinkage)*nfolds
+cv_res = data.frame(ntree = rep(NA,niter),interactiondepth = rep(NA,niter),
+                    shrinkage = rep(NA,niter))
+counter=1
+for (i in 1:length(n.trees)){
+  for (j in 1:length(interaction.depth)){
+    for (k in 1:length(shrinkage)){
+      for (l in 1:nfolds){
+        print(paste0("i=",i," j=",j," k=",k," l=",l," counter=",counter))
+        cv_res$ntree[counter] <- n.trees[i]
+        cv_res$interactiondepth[counter] <- interaction.depth[j]
+        cv_res$shrinkage[counter] <- shrinkage[k]
+        
+        test.cv <- comb_valid_gbm[cv_indices == l,]
+        test.cv$unit_sales[test.cv$unit_sales < 0] <- 0
+        train.cv <- comb_valid_gbm[cv_indices != l,]
+        train.cv$unit_sales[train.cv$unit_sales < 0] <- 0
+        
+        model <- gbm(train.cv$unit_sales~.,data = train.cv,distribution="gaussian",
+                    n.trees = n.trees[i],interaction.depth = interaction.depth[j],
+                    shrinkage = shrinkage[k])
+        pred <- predict(model, newdata=test.cv,n.trees=n.trees[i])
+        pred[pred < 0] <- 0
+        w <- ifelse(test.cv$perishable == 0, 1, 1.25)
+        cv_res$score.gbm[counter] <- sqrt(sum(w * (log(pred + 1) - log(test.cv$unit_sales + 1))^2)/sum(w))
+        
+        counter = counter + 1
+      }
+    }
+  }
+}
+best_parameter<-cv_res[which.min(cv_res$score.gbm),]
+best_model<-gbm(train.cv$unit_sales~.,data = train.cv,distribution="gaussian",
+                n.trees = best_parameter[1],interaction.depth = best_parameter[2],
+                shrinkage = best_parameter[3])
+pred<-predict(best_model, newdata=comb_test_gbm,n.trees=best_parameter[1])
+pred[pred < 0] <- 0
+w <- ifelse(comb_test_gbm$perishable == 0, 1, 1.25)
+comb_test_gbm$unit_sales[comb_test_gbm$unit_sales < 0] <- 0
+best_score <- sqrt(sum(w * (log(pred + 1) - log(comb_test_gbm$unit_sales + 1))^2)/sum(w))
 ```
