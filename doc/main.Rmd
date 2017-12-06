@@ -835,7 +835,7 @@ best_score <- sqrt(sum(w * (log(pred + 1) - log(comb_test_gbm$unit_sales + 1))^2
 
 print(paste0("the score for GBM in stack 2 is ", best_score))
 ```
-
+We can see that GBM performs better than Baseline (Average-Feature Prediction).
 
 ### 3.4 XGBoost
 
@@ -914,12 +914,14 @@ if(run_xgb_stack2){
   # in case it predicts below 0, but it shouldn't.
   preds2[preds2 < 0] <- 0
 
-  save(preds2, file="../output/XGB2/test_pred_XGB2.RData")
+  save(preds2, file="../output/test_pred_XGB2.RData")
 }else{
-  load("../output/XGB2/test_pred_XGB2.RData")
+  load("../output/test_pred_XGB2.RData")
 }
 w <- ifelse(comb_test$perishable == 0, 1, 1.25)
-valid_score <- sqrt(sum(w * (log(as.numeric(preds2) + 1) - log(as.numeric(comb_test$unit_sales) + 1))^2)/sum(w))
+comb_test$unit_sales[comb_test$unit_sales < 0] <- 0
+xgb_score <- sqrt(sum(w * (log(as.numeric(preds2) + 1) - log(as.numeric(comb_test$unit_sales) + 1))^2)/sum(w))
 
-print(paste0("the score for Xgboost in stack 2 is ", valid_score))
+print(paste0("the score for Xgboost in stack 2 is ", xgb_score))
 ```
+We can see that XgBoost performs better than Baseline (Average-Feature Prediction) as it reduces the error score by over 9% (= 1-xgb_score/avg_kaggle_score).
