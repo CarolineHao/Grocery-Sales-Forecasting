@@ -690,6 +690,9 @@ if (run_linear_stack2) {
 
 linear_kaggle_score = sqrt(sum(w * (log(test$linear_stack_pred + 1) - log(test$unit_sales + 1))^2)/sum(w))
 print(paste0("the score for Linear Regression in stack 2 is ", linear_kaggle_score))
+
+# need to read test set again as the dataframe changes
+test <- fread("../output/combined_test.csv")
 ```
 We can see from the results that Linear Regression performs even worse than the Baseline(Average-Feature Prediction) method.
 
