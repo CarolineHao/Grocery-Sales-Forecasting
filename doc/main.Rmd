@@ -843,32 +843,30 @@ print(paste0("the score for GBM in stack 2 is ", best_score))
 run_xgb_stack2 <- FALSE
 
 if(run_xgb_stack2){
-features <- c('rf_pred', 'xgboost_pred', 'ets_pred', 'prophet_pred', 'arima_pred')
+  features <- c('rf_pred', 'xgboost_pred', 'ets_pred', 'prophet_pred', 'arima_pred')
 
-comb_valid$unit_sales[comb_valid$unit_sales< 0] <- 0
-comb_test$unit_sales[comb_test$unit_sales< 0] <- 0
+  comb_valid$unit_sales[comb_valid$unit_sales< 0] <- 0
+  comb_test$unit_sales[comb_test$unit_sales< 0] <- 0
 
+  dtrain <- xgb.DMatrix(data = as.matrix(comb_valid[, features]), label =
+                          comb_valid$unit_sales)
+  dtest <- xgb.DMatrix(data = as.matrix(comb_test[, features, with=FALSE]), label =
+                         comb_test$unit_sales)
+  
+  watchlist <- list(train=dtrain, test = dtest)
 
-dtrain <- xgb.DMatrix(data = as.matrix(comb_valid[, features]), label = comb_valid$unit_sales)
-dtest <- xgb.DMatrix(data = as.matrix(comb_test[, features, with=FALSE]), label = comb_test$unit_sales)
+  tuning <- FALSE
 
-watchlist <- list(train=dtrain, test = dtest)
-
-tuning <- FALSE
-
-if(tuning){
-searchGridSubCol <- expand.grid(subsample = c(0.6, 0.8, 1), 
-                                colsample_bytree = c(0.6, 0.8, 1),
-                                max_depth = c(8),
-                                min_child = c(1, 5, 10), 
-                                eta = c(0.01, 0.3, 1),
-                                gamma = c(0.1, 1, 10)
-)
-
-ntrees <- 100
-
-
-  rmseErrorsHyperparameters <- apply(searchGridSubCol, 1, function(parameterList){
+  if(tuning){
+    searchGridSubCol <- expand.grid(subsample = c(0.6, 0.8, 1), 
+                                    colsample_bytree = c(0.6, 0.8, 1),
+                                  max_depth = c(8),
+                                  min_child = c(1, 5, 10), 
+                                  eta = c(0.01, 0.3, 1),
+                                  gamma = c(0.1, 1, 10)
+                                  )
+    ntrees <- 100
+    rmseErrorsHyperparameters <- apply(searchGridSubCol, 1, function(parameterList){
     
     #Extract Parameters to test
     currentGamma <- parameterList[["gamma"]]
@@ -878,42 +876,50 @@ ntrees <- 100
     currentEta <- parameterList[["eta"]]
     currentMinChild <- parameterList[["min_child"]]
     
-    xgboostModelCV <- xgb.cv(data =  dtrain, nrounds = ntrees, nfold = 2, showsd = TRUE, 
-                             metrics = "rmse", verbose = TRUE, "eval_metric" = "rmse",
-                             "objective" = "reg:linear", "max.depth" = currentDepth, "eta" = currentEta,                               
-                             "subsample" = currentSubsampleRate, "colsample_bytree" = currentColsampleRate
-                             , print_every_n = 10, "min_child_weight" = currentMinChild, "gamma" = currentGamma,
+    xgboostModelCV <- xgb.cv(data =  dtrain, nrounds = ntrees, nfold = 2, showsd =
+                               TRUE, 
+                             metrics = "rmse", verbose = TRUE, "eval_metric" =
+                               "rmse",
+                             "objective" = "reg:linear", "max.depth" = currentDepth,
+                             "eta" = currentEta,                               
+                             "subsample" = currentSubsampleRate, "colsample_bytree" =
+                               currentColsampleRate
+                             , print_every_n = 10, "min_child_weight" =
+                               currentMinChild, "gamma" = currentGamma,
                              booster = "gbtree",
                              early_stopping_rounds = 50)
     
     xvalidationScores <- as.data.frame(xgboostModelCV$evaluation_log)
     rmse <- tail(xvalidationScores$test_rmse_mean, 1)
     trmse <- tail(xvalidationScores$train_rmse_mean,1)
-    output <- return(c(rmse, trmse, currentSubsampleRate, currentColsampleRate, currentDepth, currentEta, currentMinChild, currentGamma))
+    output <- return(c(rmse, trmse, currentSubsampleRate, currentColsampleRate,
+                       currentDepth, currentEta, currentMinChild, currentGamma))
     
-  })
+    })
 
-output <- as.data.frame(t(rmseErrorsHyperparameters))
-varnames <- c("TestRMSE", "TrainRMSE", "SubSampRate", "ColSampRate", "Depth", "eta", "currentMinChild", "Gammma")
-names(output) <- varnames
+  output <- as.data.frame(t(rmseErrorsHyperparameters))
+  varnames <- c("TestRMSE", "TrainRMSE", "SubSampRate", "ColSampRate", "Depth",
+                "eta", "currentMinChild", "Gammma")
+  names(output) <- varnames
 
-save(output, file = "../output/xgb2_cverror.RData")
+  save(output, file = "../output/xgb2_cverror.RData")
+  }
+
+  bst <- xgb.train(data=dtrain, eta=0.01, gamma = 1, max_depth = 8,
+                   min_child_weight = 5, subsample = 0.6, colsample_bytree = 0.6,
+                   nrounds=200, watchlist=watchlist, nthread = 4, objective =
+                     "reg:linear")
+
+  preds2 <- predict(bst, dtest)
+  # in case it predicts below 0, but it shouldn't.
+  preds2[preds2 < 0] <- 0
+
+  save(preds2, file="../output/XGB2/test_pred_XGB.RData")
+}else{
+  load("../output/XGB2/test_pred_XGB.RData")
 }
-
-bst <- xgb.train(data=dtrain, eta=0.01, gamma = 1, max_depth = 8,
-                 min_child_weight = 5, subsample = 0.6, colsample_bytree = 0.6,
-                 nrounds=200, watchlist=watchlist, nthread = 4, objective = "reg:linear")
-
-preds2 <- predict(bst, dtest)
-# in case it predicts below 0, but it shouldn't.
-preds2[preds2 < 0] <- 0
-
-
-save(preds2, file="../output/XGB2/test_pred_XGB.RData")
-
 w <- ifelse(comb_test$perishable == 0, 1, 1.25)
 valid_score <- sqrt(sum(w * (log(as.numeric(preds2) + 1) - log(as.numeric(comb_test$unit_sales) + 1))^2)/sum(w))
 
-print(paste0("the score for RF in stack 2 is ", valid_score))
-}
+print(paste0("the score for Xgboost in stack 2 is ", valid_score))
 ```
