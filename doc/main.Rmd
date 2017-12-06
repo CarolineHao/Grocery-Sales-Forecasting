@@ -385,7 +385,10 @@ test_prophet <- test_comb%>%select(V1, id, sales_pred)
 colnames(test_prophet)[3] <- "prophet_pred"
 ```
 
-### Step 2.4 XgBoost
+### Step 2.4 XGBoost
+
+XGBoost is a popular boosting algorithm that has been used to use a lot of Kaggle competitions. It is an implementation of a gradient boosting machine. XGBoost is relative fast to train and does well with large datasets, and requires some hyperparameter tuning to achieve the best results.
+
 ```{r}
 run.xgboost = FALSE #if TRUE, run all the processing, cross-validation, and prediction process on XgBoost
 
