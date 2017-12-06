@@ -608,83 +608,83 @@ if(run.merge){
 
 ## Step 3: The Second Stack
 
-In the second Stack, we train Random Forest Models on the validation set use the features from Step 2 by a 5-fold cross-validation
+In the second Stack, we train Models on the validation set use the features from  1st Stack.
+
+### 3.1 Average-Feature Prediction
+
+First of all, we just use the mean of our test features obtained from 1st Stack models as the predictions of sales on test set, call this Average-Feature Prediction method, and see the performance.
 ```{r}
+mean_pred = rowMeans(comb_test[,9:13])
+w = ifelse(comb_test$perishable == 0, 1, 1.25)
+actual_sales = ifelse(comb_test$unit_sales < 0, 0, comb_test$unit_sales)
 
+avg_kaggle_score = sqrt(sum(w * (log(mean_pred + 1) - log(actual_sales + 1))^2)/sum(w))
+
+print(paste0("the score for Average-Feature Prediction method is ", avg_kaggle_score))
 ```
+We could see that the performance of the Average-Feature Prediction method is not very good.
 
-### 3.1 Linear Regression 
 
-Here we use ridge regression for the second stack, as it allows for some variable/feature selection/importance via shrinkage, while not necessarily shrinking the coefficients to 0 (since we believe that all of the models will have some predictive power still). We also use a linear regression that takes an average of the other model outputs.
+### 3.2 Linear Regression 
 
+Here we use ridge regression for the second stack, as it allows for some variable/feature selection/importance via shrinkage, while not necessarily shrinking the coefficients to 0 (since we believe that all of the models will have some predictive power still). 
 ```{r}
 run_linear_stack2 = FALSE
 if (run_linear_stack2) {
   
-  load("../output/comb_testFeatures.RData")
-load("../output/comb_validFeatures.RData")
+  train_x = comb_valid[,-c(1,3,4,5,6)]
+  train_y = comb_valid[,6]
 
-train_x = comb_valid[,-c(1,3,4,5,6)]
-train_y = comb_valid[,6]
+  train_x$linear_stack_pred = NA
 
-train_x$linear_stack_pred = NA
+  test = comb_test[,c(1,7,6,8,9,10,11,12,13)]
+  test$linear_stack_pred = NA
 
-test = comb_test[,c(1,7,6,8,9,10,11,12,13)]
-test$linear_stack_pred = NA
-
-lambdas <- 10^seq(3, -2, by = -.5)
-
-
-
-unique_combos = unique(train_x$store_item_nbr)
-
-for (i in 1:length(unique_combos)) {
-  print(i)
+  lambdas <- 10^seq(3, -2, by = -.5)
   
-  indices_train = which(train_x$store_item_nbr == unique_combos[i])
-  x = train_x[indices_train,-c(1,2,3,9)]
-  y = train_y[indices_train]
+  unique_combos = unique(train_x$store_item_nbr)
+
+  for (i in 1:length(unique_combos)) {
+    print(i)
   
-  indices_test = which(test$store_item_nbr.x == unique_combos[i])
-  test_sub = test[indices_test,]
-  test_x = test_sub[,c(5:9)]
-
-  cv_fit <- cv.glmnet(model.matrix( ~ ., x), y, alpha = 0, lambda = lambdas)
-  opt_lambda <- cv_fit$lambda.min
-  fit <- cv_fit$glmnet.fit
+    indices_train = which(train_x$store_item_nbr == unique_combos[i])
+    x = train_x[indices_train,-c(1,2,3,9)]
+    y = train_y[indices_train]
   
-  ytest_predicted <- predict(fit, s = opt_lambda, newx = model.matrix(~ . , test_x))
-  ytrain_predicted <- predict(fit, s = opt_lambda, newx = model.matrix(~ . , x))
+    indices_test = which(test$store_item_nbr.x == unique_combos[i])
+    test_sub = test[indices_test,]
+    test_x = test_sub[,c(5:9)]
+
+    cv_fit <- cv.glmnet(model.matrix( ~ ., x), y, alpha = 0, lambda = lambdas)
+    opt_lambda <- cv_fit$lambda.min
+    fit <- cv_fit$glmnet.fit
   
-  train_x$linear_stack_pred[indices_train] = ytrain_predicted
-  test$linear_stack_pred[indices_test] = ytest_predicted
+    ytest_predicted <- predict(fit, s = opt_lambda, newx = model.matrix(~ . , test_x))
+    ytrain_predicted <- predict(fit, s = opt_lambda, newx = model.matrix(~ . , x))
   
-}
+    train_x$linear_stack_pred[indices_train] = ytrain_predicted
+    test$linear_stack_pred[indices_test] = ytest_predicted
+  }
 
-w = ifelse(test$perishable == 0, 1, 1.25)
+  w = ifelse(test$perishable == 0, 1, 1.25)
 
-test$linear_stack_pred[test$linear_stack_pred < 0 | is.na(test$linear_stack_pred)] <- 0
-test$unit_sales[test$unit_sales < 0] <- 0
+  test$linear_stack_pred[test$linear_stack_pred < 0 | is.na(test$linear_stack_pred)]<- 0
+  test$unit_sales[test$unit_sales < 0] <- 0
 
-
-
-test$mean_pred = rowMeans(test[,c(5:9)])
-
-save(train_x,test,file="../output/stack2_linear.RData")
-
+  save(train_x,test,file="../output/stack2_linear.RData")
 } else {
-  
   load("../output/stack2_linear.RData")
-  
+  w = ifelse(test$perishable == 0, 1, 1.25)
 }
 
 linear_kaggle_score = sqrt(sum(w * (log(test$linear_stack_pred + 1) - log(test$unit_sales + 1))^2)/sum(w))
-
-avg_kaggle_score = sqrt(sum(w * (log(test$mean_pred + 1) - log(test$unit_sales + 1))^2)/sum(w))
-
-  
+print(paste0("the score for Linear Regression in stack 2 is ", linear_kaggle_score))
 ```
-### 3.2 Random Forest
+We can see from the results that Linear Regression performs even worse than the Average-Feature Prediction method.
+
+### 3.3 Random Forest
+
+Still this time, as the dataset too large (over 200,000 observations in validation set), we use sampling method to train Random Forest model, which is the same as in the 1st Stack.
 ```{r}
 run_rf_stack2 = FALSE
 
@@ -744,6 +744,7 @@ if(run_rf_stack2){
   test_rf$unit_sales[test_rf$unit_sales < 0] <- 0
   w <- ifelse(test_rf$perishable == 0, 1, 1.25)
   score_rf<- sqrt(sum(w * (log(pred + 1) - log(test_rf$unit_sales + 1))^2)/sum(w))
-  print(paste0("the score for RF in stack 2 is", score_rf))
+  print(paste0("the score for RF in stack 2 is ", score_rf))
 }
 ```
+We can see that Random Forest performs better than Average-Feature Prediction as it reduces the error score by over 8% (= 1-score_rf/avg_kaggle_score).
