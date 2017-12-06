@@ -914,9 +914,9 @@ if(run_xgb_stack2){
   # in case it predicts below 0, but it shouldn't.
   preds2[preds2 < 0] <- 0
 
-  save(preds2, file="../output/XGB2/test_pred_XGB.RData")
+  save(preds2, file="../output/XGB2/test_pred_XGB2.RData")
 }else{
-  load("../output/XGB2/test_pred_XGB.RData")
+  load("../output/XGB2/test_pred_XGB2.RData")
 }
 w <- ifelse(comb_test$perishable == 0, 1, 1.25)
 valid_score <- sqrt(sum(w * (log(as.numeric(preds2) + 1) - log(as.numeric(comb_test$unit_sales) + 1))^2)/sum(w))
