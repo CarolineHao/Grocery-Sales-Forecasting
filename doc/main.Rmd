@@ -817,7 +817,7 @@ if(run.gbm){
   }
   save(cv_res,file="../output/GBM_cv_res.RData")
 }else{
-  best_parameter <- c(400,2,0.15)
+  best_parameter <- c(500,2,0.15)
 }
 # find best parameter
 #best_parameter<-cv_res[which.min(cv_res$score.gbm),]
@@ -830,12 +830,12 @@ if(run.gbm){
                   shrinkage = best_parameter[3])
   pred<-predict(best_model, newdata=comb_test_gbm,n.trees=best_parameter[1])
   pred[pred < 0] <- 0
-  save(pred, file="../output/gbm_pred.RData")
+  pred_gbm <- pred
+  save(pred_gbm, file="../output/pred_gbm.RData")
 }else{
-  load("../output/gbm_pred.RData")
+  load("../output/pred_gbm.RData")
 }
-pred_gbm <- 
-w <- ifelse(comb_test_gbm$perishable == 0, 1, 1.25)
+w <- ifelse(comb_test$perishable == 0, 1, 1.25)
 comb_test$unit_sales[comb_test$unit_sales < 0] <- 0
 best_score <- sqrt(sum(w * (log(pred_gbm + 1) - log(comb_test$unit_sales + 1))^2)/sum(w))
 
@@ -931,7 +931,10 @@ xgb_score <- sqrt(sum(w * (log(as.numeric(preds2) + 1) - log(as.numeric(comb_tes
 print(paste0("the score for Xgboost in stack 2 is ", xgb_score))
 ```
 We can see that XgBoost performs better than Baseline (Average-Feature Prediction) as it reduces the error score by over 9% (= 1-xgb_score/avg_kaggle_score).
+
 ## Step 4: Conclusion
+
+
 As Random Forest, and XgBoost perform well on 2nd Stack, we would like to try the combinations of these two models.
 ```{r}
 # Combine the predictions from the two models as a matrix
@@ -943,4 +946,4 @@ final.score <- sqrt(sum(w * (log(final.pred + 1) - log(as.numeric(comb_test$unit
 
 print(paste0("the final score is ", final.score))
 ```
-As the combinations of the predictions from 2nd Stack models Random Forest, and XgBoost do give us better performance, we would like to include this step as our model.
+As the combinations of the predictions from 2nd Stack models Random Forest, and XgBoost do give us better performance, we would like to include this step in our whole model.
