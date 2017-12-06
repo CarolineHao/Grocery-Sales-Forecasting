@@ -13,7 +13,7 @@ Shuyao Hao
 
 
 Jordan leung
-- XgBoost model
+- XgBoost model in 1st and 2nd Stack
 - Experiments of parallel computing on Random Forest models 
 - Help with Jingkai on presentation
 
