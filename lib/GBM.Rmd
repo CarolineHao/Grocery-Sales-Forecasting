@@ -1,0 +1,103 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r}
+#######training process######
+
+library("gbm")
+load("../output/comb_validFeatures.RData")
+load("../output/comb_testFeatures.RData")
+
+train_set = comb_valid[,c("date","store_item_nbr","unit_sales","rf_pred","xgboost_pred","ets_pred","prophet_pred","arima_pred","perishable")]
+head(train_set)
+
+### para1.
+set.seed(1)
+
+bst1 = gbm(unit_sales~rf_pred+xgboost_pred+ets_pred+prophet_pred+arima_pred, interaction.depth =
+            2,data=train_set,distribution="gaussian",n.trees =320,verbose
+          =F,shrinkage =0.15)
+
+
+summary(bst1)
+train_set$pre = predict(bst1,newdata=train_set,n.trees =320)
+train_set$pre[train_set$pre < 0] = 0
+train_set$unit_sales[train_set$unit_sales < 0] = 0
+train_set = as.data.frame(train_set)
+save(train_set, file = "GBM_train_comb.RData")
+
+w = ifelse(train_set$perishable == 0, 1, 1.25)
+valid_score = sqrt(sum(w * (log(as.numeric(train_set$pre) + 1) - log(as.numeric(train_set$unit_sales) + 1))^2)/sum(w))
+valid_score
+# Score = 0.5555224
+
+### para2.
+set.seed(1)
+
+bst2 = gbm(unit_sales~rf_pred+xgboost_pred+ets_pred+prophet_pred+arima_pred, interaction.depth =
+            3,data=train_set,distribution="gaussian",n.trees =320,verbose
+          =F,shrinkage =0.15)
+
+
+summary(bst2)
+train_set$pre2 = predict(bst2,newdata=train_set,n.trees =320)
+train_set$pre2[train_set$pre2 < 0] = 0
+train_set$unit_sales[train_set$unit_sales < 0] = 0
+train_set_2 = as.data.frame(train_set)
+save(train_set_2, file = "GBM_train_comb_2.RData")
+
+w = ifelse(train_set$perishable == 0, 1, 1.25)
+valid_score = sqrt(sum(w * (log(as.numeric(train_set$pre2) + 1) - log(as.numeric(train_set$unit_sales) + 1))^2)/sum(w))
+valid_score
+#Score = 0.557962
+
+
+### para3. Best one we choose
+set.seed(1)
+
+bst3 = gbm(unit_sales~rf_pred+xgboost_pred+ets_pred+prophet_pred+arima_pred, interaction.depth = 2,data=train_set,distribution="gaussian",n.trees = 500,verbose =F,shrinkage =0.15)
+
+
+summary(bst3)
+train_set$pre3 = predict(bst3,newdata=train_set,n.trees =500)
+train_set$pre3[train_set$pre3 < 0] = 0
+train_set$unit_sales[train_set$unit_sales < 0] = 0
+train_set_3 = as.data.frame(train_set)
+save(train_set_3, file = "GBM_train_comb_3.RData")
+
+w = ifelse(train_set$perishable == 0, 1, 1.25)
+valid_score = sqrt(sum(w * (log(as.numeric(train_set$pre3) + 1) - log(as.numeric(train_set$unit_sales) + 1))^2)/sum(w))
+valid_score
+#Score = 0.5508586
+```
+
+
+
+
+
+```{r}
+#####test process######
+
+#Test on train3
+test_set = comb_test[,c("date.x","store_item_nbr.x","unit_sales","rf_pred","xgboost_pred","ets_pred","prophet_pred","arima_pred","perishable")]
+head(test_set)
+
+test_set$pre3 = predict(bst3,newdata=test_set,n.trees = 500)
+test_set$pre3[test_set$pre3 < 0] = 0
+test_set$unit_sales[test_set$unit_sales < 0] = 0
+test_set = as.data.frame(test_set)
+pred_gbm = test_set $ pre3
+save(pred_gbm, file = "pred_gbm.RData")
+
+
+w = ifelse(test_set$perishable == 0, 1, 1.25)
+valid_score = sqrt(sum(w * (log(as.numeric(test_set$pre3) + 1) - log(as.numeric(test_set$unit_sales) + 1))^2)/sum(w))
+valid_score
+#Score = 0.620074
+
+```
+
