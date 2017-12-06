@@ -473,14 +473,16 @@ if(run.xgboost){
 
   # 
   output <- as.data.frame(t(rmseErrorsHyperparameters))
-  varnames <- c("TestRMSE", "TrainRMSE", "SubSampRate", "ColSampRate", "Depth", "eta", "currentMinChild",
+  varnames <- c("TestRMSE", "TrainRMSE", "SubSampRate", "ColSampRate", "Depth",
+                "eta", "currentMinChild",
                 "Gammma")
   names(output) <- varnames
   save(output, file = "../output/xgboost/cverror.RData")
 
   bst <- xgb.train(data=dtrain, eta=0.7, gamma = 1, max_depth = 8,
                 min_child_weight = 10, subsample = 0.7, colsample_bytree = 0.7,
-                nrounds=40, watchlist=watchlist, nthread = 4, objective = "reg:linear")
+                nrounds=40, watchlist=watchlist, nthread = 4, objective =
+                  "reg:linear")
 
 
   features_test <- predict(bst, dtest)
